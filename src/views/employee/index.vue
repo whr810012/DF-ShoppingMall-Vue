@@ -148,16 +148,19 @@ const delete_btn = (row: any) => {
       <el-table-column label="操作" width="200px" align="center">
         <!-- scope 的父组件是 el-table -->
         <template #default="scope">
-          <!-- <el-button @click="update_btn(scope.row)" type="primary">修改</el-button> -->
-          <el-button @click="update_btn(scope.row)" type="primary" :disabled="userInfoStore.userInfo?.account !== 'admin'
-            && userInfoStore.userInfo?.account !== scope.row.account ? true : false">修改
+          <!-- 修改：是自己的账号，或者是超管 -->
+          <el-button @click="update_btn(scope.row)" type="primary"
+          :disabled="userInfoStore.userInfo?.sorct !== 1 && userInfoStore.userInfo?.id !== scope.row.id ? true : false">
+          修改
           </el-button>
+          <!-- 只有超管可以修改状态 -->
           <el-button @click="change_btn(scope.row)" plain :type="scope.row.status === 1 ? 'danger' : 'primary'"
-            :disabled="userInfoStore.userInfo?.account !== 'admin' ? true : false">
+            :disabled="userInfoStore.userInfo?.sorct !== 1 ? true : false">
             {{ scope.row.status === 1 ? '禁用' : '启用' }}
           </el-button>
+          <!-- 只有超管可以删除 -->
           <el-button @click="delete_btn(scope.row)" type="danger"
-            :disabled="userInfoStore.userInfo?.account !== 'admin' ? true : false">删除
+            :disabled="userInfoStore.userInfo?.sorct !== 1 ? true : false">删除
           </el-button>
         </template>
       </el-table-column>
