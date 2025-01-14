@@ -35,7 +35,7 @@ const loginFn = async () => {
     const { data: res } = await loginAdminApi(form.value)
     console.log(res)
     // 登录失败，提示用户，这个提示已经在响应拦截器中统一处理了，这里直接return就行
-    if (res.code !== 0) {
+    if (res.code !== 1) {
       return false
     }
     // 登录成功，提示用户
