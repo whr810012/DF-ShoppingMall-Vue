@@ -1,22 +1,20 @@
 <script setup lang="ts">
 
 import { reactive, ref } from 'vue'
-import { queryAllAdminApi, deleteAdminApi } from '@/api/admin'
+import { queryAllAdminApi, deleteAdminApi, updateAdminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useUserInfoStore } from '@/store'
 
 // ------ .d.ts 属性类型接口 ------
 interface employee {
-  id: number
-  name: string
-  account: string
-  phone: string
-  age: number
-  gender: string
-  pic: string
-  status: string
-  updateTime: string
+  account: string,
+	adminName: string,
+	createTime: string,
+	id: number,
+	password: string,
+	sorct: number,
+	status: number
 }
 
 // ------ 数据 ------
@@ -41,8 +39,8 @@ const init = async () => {
   console.log(res)
   console.log('管理员列表')
   console.log(res.data)
-  employeeList.value = res.data.records
-  pageData.total = res.data.total
+  employeeList.value = res.data
+  pageData.total = employeeList.value.length
 }
 
 init()  // 页面初始化，写在这里时的生命周期是beforecreated/created的时候
@@ -72,18 +70,18 @@ const update_btn = (row: any) => {
 }
 
 // 修改管理员状态
-// const change_btn = async (row: any) => {
-//   console.log('要修改的行数据')
-//   console.log(row)
-//   // const status = row.status === 1 ? 0 : 1
-//   await updateEmployeeStatusAPI(row.id)
-//   // 修改后刷新页面，更新数据
-//   init()
-//   ElMessage({
-//     type: 'success',
-//     message: '修改成功',
-//   })
-// }
+const change_btn = async (row: any) => {
+  console.log('要修改的行数据')
+  console.log(row)
+  // const status = row.status === 1 ? 0 : 1
+  await updateAdminApi({id:row.id, status:row.status})
+  // 修改后刷新页面，更新数据
+  init()
+  ElMessage({
+    type: 'success',
+    message: '修改成功',
+  })
+}
 
 // 删除管理员
 const delete_btn = (row: any) => {
@@ -130,16 +128,14 @@ const delete_btn = (row: any) => {
       </el-button>
     </div>
     <el-table :data="employeeList" stripe>
-      <!-- <el-table-column prop="id" label="id" /> -->
-      <el-table-column prop="name" label="姓名" align="center" />
+      <el-table-column prop="id" label="id" />
+      <el-table-column prop="adminName" label="姓名" align="center" />
       <el-table-column prop="account" label="账号" align="center" />
-      <el-table-column prop="phone" label="手机号" width="120px" align="center" />
-      <el-table-column prop="age" label="年龄" align="center" />
-      <el-table-column prop="gender" label="性别" align="center" />
-      <el-table-column prop="pic" label="头像" align="center">
+      <el-table-column prop="createTime" label="创建时间" align="center" />
+      <el-table-column prop="sorct" label="" align="center">
         <template #default="scope">
-          <img v-if="scope.row.pic" :src="scope.row.pic" alt="" />
-          <img v-else src="/src/assets/image/user_default.png" alt="" />
+          <span v-if="scope.row.sorct === 1">超级管理员</span>
+          <span v-else>普通管理员</span>
         </template>
       </el-table-column>
       <el-table-column prop="status" label="状态" align="center">
@@ -149,20 +145,19 @@ const delete_btn = (row: any) => {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="updateTime" label="上次操作时间" width="120px" align="center" />
       <el-table-column label="操作" width="200px" align="center">
         <!-- scope 的父组件是 el-table -->
         <template #default="scope">
           <!-- <el-button @click="update_btn(scope.row)" type="primary">修改</el-button> -->
-          <el-button @click="update_btn(scope.row)" type="primary" :disabled="userInfoStore.userInfo?.account !== 'cyh'
+          <el-button @click="update_btn(scope.row)" type="primary" :disabled="userInfoStore.userInfo?.account !== 'admin'
             && userInfoStore.userInfo?.account !== scope.row.account ? true : false">修改
           </el-button>
-          <!-- <el-button @click="change_btn(scope.row)" plain :type="scope.row.status === 1 ? 'danger' : 'primary'"
-            :disabled="userInfoStore.userInfo?.account !== 'cyh' ? true : false">
+          <el-button @click="change_btn(scope.row)" plain :type="scope.row.status === 1 ? 'danger' : 'primary'"
+            :disabled="userInfoStore.userInfo?.account !== 'admin' ? true : false">
             {{ scope.row.status === 1 ? '禁用' : '启用' }}
-          </el-button> -->
+          </el-button>
           <el-button @click="delete_btn(scope.row)" type="danger"
-            :disabled="userInfoStore.userInfo?.account !== 'cyh' ? true : false">删除
+            :disabled="userInfoStore.userInfo?.account !== 'admin' ? true : false">删除
           </el-button>
         </template>
       </el-table-column>
@@ -174,9 +169,9 @@ const delete_btn = (row: any) => {
     <!-- element ui 官方推荐使用 v-model 双向绑定 而不是使用事件监听 -->
     <!-- 但是为了监听后还要调用相关函数，看来只能用事件了... -->
     <!-- 有没有办法让v-model的值发生改变时自动触发更新函数？ -->
-    <el-pagination class="page" background layout="total, sizes, prev, pager, next, jumper" :total="pageData.total"
+    <!-- <el-pagination class="page" background layout="total, sizes, prev, pager, next, jumper" :total="pageData.total"
       :page-sizes="[2, 4, 6, 8]" v-model:current-page="pageData.page" v-model:page-size="pageData.pageSize"
-      @current-change="handleCurrentChange" @size-change="handleSizeChange" />
+      @current-change="handleCurrentChange" @size-change="handleSizeChange" /> -->
   </el-card>
 </template>
 

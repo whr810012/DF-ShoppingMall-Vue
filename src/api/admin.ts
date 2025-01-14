@@ -8,6 +8,14 @@ export const addAdminApi = (params: any) => {
   })
 }
 
+export const updateAdminApi = (params: any) => {
+  return request({
+    url: 'admin/amend',
+    method: 'post',
+    data: { ...params }
+  })
+}
+
 export const deleteAdminApi = (ids: any) => {
   return request({
     url: 'admin/delete',
