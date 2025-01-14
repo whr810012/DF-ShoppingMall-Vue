@@ -44,8 +44,8 @@ export const fixPwdAPI = (params: any) => {
 }
 
 /**
- * 管理员添加员工
- * @param params 添加员工的DTO对象
+ * 管理员添加管理员
+ * @param params 添加管理员的DTO对象
  * @returns 
  */
 export const addEmployeeAPI = (params: any) => {
@@ -57,7 +57,7 @@ export const addEmployeeAPI = (params: any) => {
 }
 
 /**
- * 获取员工分页列表
+ * 获取管理员分页列表
  * @param params 分页查询DTO
  * @returns 
  */
@@ -71,8 +71,8 @@ export const getEmployeePageListAPI = (params: any) => {
 }
 
 /**
- * 根据id获取员工信息，用于回显
- * @param id 员工id
+ * 根据id获取管理员信息，用于回显
+ * @param id 管理员id
  * @returns 
  */
 export const getEmployeeByIdAPI = (id: number) => {
@@ -83,8 +83,8 @@ export const getEmployeeByIdAPI = (id: number) => {
 }
 
 /**
- * 修改员工信息
- * @param params 更新员工信息的DTO对象
+ * 修改管理员信息
+ * @param params 更新管理员信息的DTO对象
  * @returns 
  */
 export const updateEmployeeAPI = (params: any) => {
@@ -96,12 +96,12 @@ export const updateEmployeeAPI = (params: any) => {
 }
 
 /**
- * 修改员工状态
- * @param params 员工id
+ * 修改管理员状态
+ * @param params 管理员id
  * @returns 
  */
 export const updateEmployeeStatusAPI = (id: number) => {
-  console.log('员工id', id)
+  console.log('管理员id', id)
   return request({
     url: `/employee/status/${id}`,
     method: 'put'
@@ -109,8 +109,8 @@ export const updateEmployeeStatusAPI = (id: number) => {
 }
 
 /**
- * 管理员根据id删除员工
- * @param id 员工id
+ * 管理员根据id删除管理员
+ * @param id 管理员id
  * @returns 
  */
 export const deleteEmployeeAPI = (id: number) => {

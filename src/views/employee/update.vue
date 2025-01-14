@@ -115,7 +115,7 @@ const onFileChange1 = (e: Event) => {
   }
 }
 
-// 修改员工信息后提交（只有管理员才能对其他员工进行修改，否则普通员工只能对自己进行修改）
+// 修改管理员信息后提交（只有管理员才能对其他管理员进行修改，否则普通管理员只能对自己进行修改）
 const submit = async () => {
   try {
     const valid = await updateRef.value.validate();
@@ -128,12 +128,12 @@ const submit = async () => {
         // 响应拦截器已经用ElMessage打印了错误信息，这里直接return
         return false
       }
-      // 如果修改的是当前用户信息，那么可能会更新当前登录系统员工的账号，即需要更新store的account值
+      // 如果修改的是当前用户信息，那么可能会更新当前登录系统管理员的账号，即需要更新store的account值
       console.log('当前userInfo.id')
       console.log(userInfoStore.userInfo)
       if (userInfoStore.userInfo && userInfoStore.userInfo.id === form.id) {
         let { data: employee } = await getEmployeeByIdAPI(form.id)
-        console.log('查询修改后的员工')
+        console.log('查询修改后的管理员')
         console.log(employee)
         if (userInfoStore.userInfo) {
           userInfoStore.userInfo.account = employee.data.account
@@ -141,7 +141,7 @@ const submit = async () => {
       }
       // 然后进行 消息提示，页面跳转 等操作
       ElMessage({
-        message: '修改员工信息成功',
+        message: '修改管理员信息成功',
         type: 'success',
       })
       router.push({
@@ -184,7 +184,7 @@ init()
 </script>
 
 <template>
-  <h1>修改员工页</h1>
+  <h1>修改管理员页</h1>
   <el-card>
     <el-form :model="form" :rules="rules" ref="updateRef">
       <el-form-item label="姓名" :label-width="formLabelWidth" prop="name">

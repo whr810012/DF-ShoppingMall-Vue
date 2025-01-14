@@ -6,7 +6,7 @@ const router = createRouter({
     {
       path: '/',
       component: () => import('./views/layout/index.vue'),
-      redirect: '/dashboard', // 将dashboard设为首页home
+      redirect: '/statistics', // 将dashboard设为首页home
       children: [
         {
           path: 'dashboard',

@@ -112,7 +112,7 @@ const onFileChange1 = (e: Event) => {
   }
 }
 
-// 添加员工信息后提交（只有管理员才能对其他员工进行修改，否则普通员工只能对自己进行修改）
+// 添加管理员信息后提交（只有管理员才能对其他管理员进行修改，否则普通管理员只能对自己进行修改）
 const submit = async () => {
   try {
     const valid = await addRef.value.validate();
@@ -122,12 +122,12 @@ const submit = async () => {
       // 在这里执行表单提交操作
       const res = await addEmployeeAPI(form)
       if (res.data.code !== 0) {
-        console.log('新增员工失败！')
+        console.log('新增管理员失败！')
         return false
       }
       // 然后进行 消息提示，页面跳转 等操作
       ElMessage({
-        message: '新增员工成功',
+        message: '新增管理员成功',
         type: 'success',
       })
       router.push({
@@ -156,7 +156,7 @@ init()
 </script>
 
 <template>
-  <h1>添加员工页</h1>
+  <h1>添加管理员页</h1>
   <el-card>
     <el-form :model="form" :rules="rules" ref="addRef">
       <el-form-item label="姓名" :label-width="formLabelWidth" prop="name">

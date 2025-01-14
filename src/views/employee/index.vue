@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 import { reactive, ref } from 'vue'
-import { getEmployeePageListAPI, updateEmployeeStatusAPI, deleteEmployeeAPI } from '@/api/employee'
+import { queryAllAdminApi, deleteAdminApi } from '@/api/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRouter } from 'vue-router'
 import { useUserInfoStore } from '@/store'
@@ -21,7 +21,7 @@ interface employee {
 
 // ------ 数据 ------
 let userInfoStore = useUserInfoStore()
-// 当前页的员工列表
+// 当前页的管理员列表
 const employeeList = ref<employee[]>([])
 // 带查询的分页参数
 const pageData = reactive({
@@ -37,9 +37,9 @@ const pageData = reactive({
 // 页面初始化，就根据token去获取用户信息，才能实现如果没有token/token过期，刚开始就能够跳转到登录页
 const init = async () => {
   // 参数解构再传进去，因为不用传total
-  const { data: res } = await getEmployeePageListAPI({ page: pageData.page, pageSize: pageData.pageSize, name: pageData.name })
+  const { data: res } = await queryAllAdminApi()
   console.log(res)
-  console.log('员工列表')
+  console.log('管理员列表')
   console.log(res.data)
   employeeList.value = res.data.records
   pageData.total = res.data.total
@@ -58,7 +58,7 @@ const handleSizeChange = (val: number) => {
   init()
 }
 
-// 修改员工(路径传参，到update页面后，根据id查询员工信息，回显到表单中)
+// 修改管理员(路径传参，到update页面后，根据id查询管理员信息，回显到表单中)
 const router = useRouter()
 const update_btn = (row: any) => {
   console.log('要修改的行数据')
@@ -71,26 +71,26 @@ const update_btn = (row: any) => {
   })
 }
 
-// 修改员工状态
-const change_btn = async (row: any) => {
-  console.log('要修改的行数据')
-  console.log(row)
-  // const status = row.status === 1 ? 0 : 1
-  await updateEmployeeStatusAPI(row.id)
-  // 修改后刷新页面，更新数据
-  init()
-  ElMessage({
-    type: 'success',
-    message: '修改成功',
-  })
-}
+// 修改管理员状态
+// const change_btn = async (row: any) => {
+//   console.log('要修改的行数据')
+//   console.log(row)
+//   // const status = row.status === 1 ? 0 : 1
+//   await updateEmployeeStatusAPI(row.id)
+//   // 修改后刷新页面，更新数据
+//   init()
+//   ElMessage({
+//     type: 'success',
+//     message: '修改成功',
+//   })
+// }
 
-// 删除员工
+// 删除管理员
 const delete_btn = (row: any) => {
   console.log('要删除的行数据')
   console.log(row)
   ElMessageBox.confirm(
-    '该操作会永久删除员工，是否继续？',
+    '该操作会永久删除管理员，是否继续？',
     'Warning',
     {
       confirmButtonText: 'OK',
@@ -101,7 +101,7 @@ const delete_btn = (row: any) => {
     .then(async () => {
       console.log('要删除的行数据')
       console.log(row)
-      await deleteEmployeeAPI(row.id)
+      await deleteAdminApi(row.id)
       // 删除后刷新页面，更新数据
       init()
       ElMessage({
@@ -121,12 +121,12 @@ const delete_btn = (row: any) => {
 <template>
   <el-card>
     <div class="horizontal">
-      <el-input size="large" class="input" v-model="pageData.name" placeholder="请输入想查询的员工名" />
-      <el-button size="large" class="btn" round type="success" @click="init()">查询员工</el-button>
+      <el-input size="large" class="input" v-model="pageData.name" placeholder="请输入想查询的管理员名" />
+      <!-- <el-button size="large" class="btn" round type="success" @click="init()">查询管理员</el-button> -->
       <el-button size="large" class="btn" type="primary" @click="router.push('/employee/add')">
         <el-icon style="font-size: 15px; margin-right: 10px;">
           <Plus />
-        </el-icon>添加员工
+        </el-icon>添加管理员
       </el-button>
     </div>
     <el-table :data="employeeList" stripe>
@@ -157,10 +157,10 @@ const delete_btn = (row: any) => {
           <el-button @click="update_btn(scope.row)" type="primary" :disabled="userInfoStore.userInfo?.account !== 'cyh'
             && userInfoStore.userInfo?.account !== scope.row.account ? true : false">修改
           </el-button>
-          <el-button @click="change_btn(scope.row)" plain :type="scope.row.status === 1 ? 'danger' : 'primary'"
+          <!-- <el-button @click="change_btn(scope.row)" plain :type="scope.row.status === 1 ? 'danger' : 'primary'"
             :disabled="userInfoStore.userInfo?.account !== 'cyh' ? true : false">
             {{ scope.row.status === 1 ? '禁用' : '启用' }}
-          </el-button>
+          </el-button> -->
           <el-button @click="delete_btn(scope.row)" type="danger"
             :disabled="userInfoStore.userInfo?.account !== 'cyh' ? true : false">删除
           </el-button>

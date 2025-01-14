@@ -14,11 +14,11 @@ const formLabelWidth = '80px'
 const isCollapse = ref(false)
 
 const menuList = [
-  {
-    title: '控制台',
-    path: '/dashboard',
-    icon: 'pieChart',
-  },
+  // {
+  //   title: '控制台',
+  //   path: '/dashboard',
+  //   icon: 'pieChart',
+  // },
   {
     title: '数据统计',
     path: '/statistics',
@@ -34,18 +34,18 @@ const menuList = [
     path: '/category',
     icon: 'postcard',
   },
+  // {
+  //   title: '套餐管理',
+  //   path: '/setmeal',
+  //   icon: 'user',
+  // },
   {
-    title: '套餐管理',
-    path: '/setmeal',
-    icon: 'user',
-  },
-  {
-    title: '菜品管理',
+    title: '商品管理',
     path: '/dish',
     icon: 'dish',
   },
   {
-    title: '员工管理',
+    title: '管理员设置',
     path: '/employee',
     icon: 'setting',
   },
