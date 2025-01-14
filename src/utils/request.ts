@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 import { useUserInfoStore } from '@/store'
 
 //定义一个变量,记录公共的前缀,  baseURL: http://localhost:8080/api
-const baseURL = '/api'
+const baseURL = ' http://localhost:8081/admin'
 const instance = axios.create({ baseURL })
 
 const userInfoStore = useUserInfoStore()

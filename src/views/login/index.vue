@@ -118,7 +118,7 @@ const loginFn = async () => {
       </el-form-item>
       <el-form-item class="my-el-form-item">
         <el-button type="primary" class="btn-login" @click="loginFn">登录</el-button>
-        <el-link type="info" @click="$router.push('/reg')">去注册</el-link>
+        <!-- <el-link type="info" @click="$router.push('/reg')">去注册</el-link> -->
       </el-form-item>
     </el-form>
   </div>
