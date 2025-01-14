@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { loginAPI } from '@/api/employee'
+import { loginAdminApi } from '@/api/admin'
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
@@ -32,7 +32,7 @@ const loginFn = async () => {
   const valid = await loginRef.value.validate()
   if (valid) {
     // 调用登录接口
-    const { data: res } = await loginAPI(form.value)
+    const { data: res } = await loginAdminApi(form.value)
     console.log(res)
     // 登录失败，提示用户，这个提示已经在响应拦截器中统一处理了，这里直接return就行
     if (res.code !== 0) {
