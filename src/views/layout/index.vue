@@ -323,7 +323,7 @@ onBeforeUnmount(() => {
       </template>
     </el-dialog>
     <el-container>
-      <el-header>
+      <el-header style="background: #67c23a;">
         <img src="../../assets/image/hanye_logo.png" class="logo" />
         <el-icon class="icon1" v-if="isCollapse">
           <Expand @click.stop="isCollapse = !isCollapse" />
@@ -361,7 +361,7 @@ onBeforeUnmount(() => {
       <el-container class="box1">
         <!-- 左侧导航菜单区域 -->
         <el-menu :width="isCollapse ? '640px' : '200px'" :default-active="getActiveAside()" :collapse="isCollapse"
-          background-color="#22aaee" text-color="#fff" unique-opened router>
+          style="background-color: #67c23a" text-color="#fff" unique-opened router>
           <!-- 加了router模式，就会在激活导航时以 :index 作为path进行路径跳转（nb!不用自己写路由了!） -->
           <!-- 根据不同情况选择menu-item/submenu进行遍历，所以外层套template遍历，里面组件做判断看是否该次遍历到自己 -->
           <template v-for="item in menuList" :key="item.path">
