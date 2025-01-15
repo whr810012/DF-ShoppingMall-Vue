@@ -32,21 +32,29 @@ const loginFn = async () => {
   const valid = await loginRef.value.validate()
   if (valid) {
     // 调用登录接口
-    const { data: res } = await loginAdminApi(form.value)
+    loginAdminApi(form.value)
+    .then(result =>{
+      const res = result.data
+      console.log(res)
+      // // 登录失败，提示用户，这个提示已经在响应拦截器中统一处理了，这里直接return就行
+      if (res.code !== 1) {
+        ElMessage.error('账号或密码错误')
+        return false
+      }
+      // 登录成功，提示用户
+      ElMessage.success('登录成功')
+      // 把后端返回的当前登录用户信息(包括token)存储到Pinia里
+      userInfoStore.userInfo = res.data
+      // 存在本地token
+      localStorage.setItem('token', res.data.token)
+      console.log(userInfoStore.userInfo)
+      // 跳转到首页
+      router.push('/')
+    })
+    .catch(err => {
+      ElMessage.error('账号或密码错误')
+    })
     // console.log(res)
-    // // 登录失败，提示用户，这个提示已经在响应拦截器中统一处理了，这里直接return就行
-    if (res.code !== 1) {
-      return false
-    }
-    // 登录成功，提示用户
-    ElMessage.success('登录成功')
-    // 把后端返回的当前登录用户信息(包括token)存储到Pinia里
-    userInfoStore.userInfo = res.data
-    // 存在本地token
-    localStorage.setItem('token', res.data.token)
-    console.log(userInfoStore.userInfo)
-    // 跳转到首页
-    router.push('/')
   } else {
     return false
   }
