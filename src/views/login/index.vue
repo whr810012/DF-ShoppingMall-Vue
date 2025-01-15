@@ -33,8 +33,8 @@ const loginFn = async () => {
   if (valid) {
     // 调用登录接口
     const { data: res } = await loginAdminApi(form.value)
-    console.log(res)
-    // 登录失败，提示用户，这个提示已经在响应拦截器中统一处理了，这里直接return就行
+    // console.log(res)
+    // // 登录失败，提示用户，这个提示已经在响应拦截器中统一处理了，这里直接return就行
     if (res.code !== 1) {
       return false
     }
@@ -42,6 +42,8 @@ const loginFn = async () => {
     ElMessage.success('登录成功')
     // 把后端返回的当前登录用户信息(包括token)存储到Pinia里
     userInfoStore.userInfo = res.data
+    // 存在本地token
+    localStorage.setItem('token', res.data.token)
     console.log(userInfoStore.userInfo)
     // 跳转到首页
     router.push('/')

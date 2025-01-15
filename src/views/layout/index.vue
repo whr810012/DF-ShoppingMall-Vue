@@ -14,11 +14,6 @@ const formLabelWidth = '80px'
 const isCollapse = ref(false)
 
 const menuList = [
-  // {
-  //   title: '控制台',
-  //   path: '/dashboard',
-  //   icon: 'pieChart',
-  // },
   {
     title: '数据统计',
     path: '/statistics',
@@ -34,15 +29,20 @@ const menuList = [
     path: '/category',
     icon: 'postcard',
   },
-  // {
-  //   title: '套餐管理',
-  //   path: '/setmeal',
-  //   icon: 'user',
-  // },
+  {
+    title: '秒杀管理',
+    path: '/setmeal',
+    icon: 'user',
+  },
   {
     title: '商品管理',
     path: '/dish',
     icon: 'dish',
+  },
+  {
+    title: '骑手管理',
+    path: '/dashboard',
+    icon: 'pieChart',
   },
   {
     title: '管理员设置',
@@ -263,11 +263,18 @@ const webSocket = () => {
 const handleClose = () => {
   shopShow.value = false
 }
+const getToken = () => {
+  const token = localStorage.getItem('token')
+  if (!token) {
+    router.push('/login')
+  }
+}
 
 // lifecycle hooks
 onMounted(() => {
   document.addEventListener('click', handleClose)
   // getStatus()
+  getToken()
   webSocket()
 })
 
@@ -333,9 +340,9 @@ onBeforeUnmount(() => {
             <source src="../../assets/reminder.mp3" type="audio/mp3" />
           </audio>
         </div>
-        <el-dropdown style="float: right">
+        <el-dropdown style="float: right" v-if="userInfoStore.userInfo">
           <el-button type="primary">
-            {{ userInfoStore.userInfo ? userInfoStore.userInfo.account : '未登录' }}
+            {{ userInfoStore.userInfo ? userInfoStore.userInfo.adminName : '未登录' }}
             <el-icon class="arrow-down-icon"><arrow-down /></el-icon>
           </el-button>
           <template #dropdown>
@@ -345,6 +352,10 @@ onBeforeUnmount(() => {
             </el-dropdown-menu>
           </template>
         </el-dropdown>
+        <el-button type="primary" style="float: right" v-else @click="quitFn">
+          {{ userInfoStore.userInfo ? userInfoStore.userInfo.adminName : '未登录' }}
+          <el-icon class="arrow-down-icon"><arrow-down /></el-icon>
+        </el-button>
         <el-button class="status-change" @click="dialogStatusVisible = true">店铺状态设置</el-button>
       </el-header>
       <el-container class="box1">
