@@ -246,14 +246,6 @@ const webSocket = () => {
         },
       })
     }
-    websocket.value.onerror = () => {
-      ElNotification({
-        title: '错误',
-        message: '服务器错误，无法接收实时报警信息',
-        type: 'error',
-        duration: 0,
-      })
-    }
     websocket.value.onclose = () => {
       console.log('WebSocket已关闭')
     }
@@ -331,7 +323,6 @@ onBeforeUnmount(() => {
         <el-icon class="icon1" v-else>
           <Fold @click.stop="isCollapse = !isCollapse" />
         </el-icon>
-        <div class="status">{{ status == 1 ? '营业中' : "打烊中" }}</div>
         <div class="rightAudio">
           <audio ref="audio1" hidden>
             <source src="../../assets/preview.mp3" type="audio/mp3" />
@@ -347,7 +338,6 @@ onBeforeUnmount(() => {
           </el-button>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item @click="dialogFormVisible = true">修改密码</el-dropdown-item>
               <el-dropdown-item @click="quitFn">退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -356,7 +346,6 @@ onBeforeUnmount(() => {
           {{ userInfoStore.userInfo ? userInfoStore.userInfo.adminName : '未登录' }}
           <el-icon class="arrow-down-icon"><arrow-down /></el-icon>
         </el-button>
-        <el-button class="status-change" @click="dialogStatusVisible = true">店铺状态设置</el-button>
       </el-header>
       <el-container class="box1">
         <!-- 左侧导航菜单区域 -->

@@ -42,6 +42,10 @@ instance.interceptors.response.use(
     //   // "xxx已存在" 等各种重复错误，后端有返回提示信息，此处在前端用ElMessage做统一拦截提示
     //   ElMessage.error(response.data.msg)
     // }
+    // 如果code为0，说明请求失败，返回错误信息
+    if (response.data.code === 0) {
+      ElMessage.error(response.data.msg)
+    }
     // 对响应的response先在上面拦截处理，最后再放行，返回response
     return response
   },

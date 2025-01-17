@@ -8,10 +8,6 @@
           <div class="number">{{ statistics.total }}</div>
         </li>
         <li>
-          <div class="title">在线骑手</div>
-          <div class="number">{{ statistics.online }}</div>
-        </li>
-        <li>
           <div class="title">配送中</div>
           <div class="number">{{ statistics.delivering }}</div>
         </li>
@@ -46,23 +42,27 @@
       </div>
 
       <el-table :data="riderList" style="width: 100%" v-loading="loading">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="姓名" width="120" />
-        <el-table-column prop="phone" label="手机号" width="120" />
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="scope">
-            <el-tag :type="getStatusType(scope.row.status)">
-              {{ getStatusText(scope.row.status) }}
-            </el-tag>
+        <el-table-column type="index" label="序号" align="center" width="70"/>
+        <el-table-column prop="name" label="姓名" align="center" />
+        <el-table-column prop="account" label="账号" align="center" />
+        <el-table-column prop="phone" label="手机号" align="center" />
+        <el-table-column prop="sex" label="性别" align="center" />
+        <el-table-column label="头像" align="center">
+          <template #default="{ row }">
+            <el-image 
+              style="width: 50px; height: 50px; border-radius: 50%"
+              :src="row.avatar"
+              fit="cover"
+            >
+              <template #error>
+                <div class="image-slot">
+                  <el-icon><Picture /></el-icon>
+                </div>
+              </template>
+            </el-image>
           </template>
         </el-table-column>
-        <el-table-column prop="orderCount" label="今日订单" width="100" />
-        <el-table-column prop="rating" label="评分" width="100">
-          <template #default="scope">
-            <el-rate v-model="scope.row.rating" disabled text-color="#ff9900" />
-          </template>
-        </el-table-column>
-        <el-table-column label="操作">
+        <el-table-column label="操作" align="center">
           <template #default="scope">
             <el-button 
               type="primary" 
@@ -98,18 +98,40 @@
     <!-- 新增/编辑骑手对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogType === 'add' ? '新增骑手' : '编辑骑手'"
+      title="新增骑手"
       width="500px"
     >
       <el-form :model="riderForm" :rules="rules" ref="riderFormRef" label-width="100px">
+        <el-form-item label="账号" prop="account">
+          <el-input v-model="riderForm.account" placeholder="请输入账号"/>
+        </el-form-item>
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="riderForm.password" type="password" show-password placeholder="请输入密码"/>
+        </el-form-item>
         <el-form-item label="姓名" prop="name">
-          <el-input v-model="riderForm.name" />
+          <el-input v-model="riderForm.name" placeholder="请输入姓名"/>
         </el-form-item>
         <el-form-item label="手机号" prop="phone">
-          <el-input v-model="riderForm.phone" />
+          <el-input v-model="riderForm.phone" placeholder="请输入手机号"/>
         </el-form-item>
-        <el-form-item label="身份证号" prop="idCard">
-          <el-input v-model="riderForm.idCard" />
+        <el-form-item label="性别" prop="sex">
+          <el-select v-model="riderForm.sex" placeholder="请选择性别">
+            <el-option label="男" value="男" />
+            <el-option label="女" value="女" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="头像" prop="image">
+          <el-upload
+            class="avatar-uploader"
+            :auto-upload="false"
+            :show-file-list="false"
+            :on-change="handleAvatarSuccess"
+            :before-upload="beforeAvatarUpload"
+            accept="image/jpeg,image/png"
+          >
+            <img v-if="riderForm.image" :src="riderForm.image" class="avatar" />
+            <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+          </el-upload>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -148,6 +170,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import { addQiShouApi, deleteQiShouApi, queryQiShouApi, queryAllQiShouApi } from '@/api/qishou'
 
 // 统计数据
 const statistics = ref({
@@ -170,9 +193,14 @@ const dialogVisible = ref(false)
 const dialogType = ref<'add' | 'edit'>('add')
 const riderFormRef = ref<FormInstance>()
 const riderForm = ref({
+  account: '',
+  password: '',
   name: '',
   phone: '',
-  idCard: ''
+  sex: '男',
+  image: '',
+  imageFile: null as File | null,
+  status:0
 })
 
 // 订单分配
@@ -183,17 +211,26 @@ const currentRider = ref<any>(null)
 
 // 表单校验规则
 const rules = {
+  account: [
+    { required: true, message: '请输入账号', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9]{1,10}$/, message: '账号必须是1-10位字母或数字', trigger: 'blur' }
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '密码长度在 6 到 20 个字符', trigger: 'blur' }
+  ],
   name: [
-    { required: true, message: '请输入姓名', trigger: 'blur' },
-    { min: 2, max: 10, message: '长度在 2 到 10 个字符', trigger: 'blur' }
+    { required: true, message: '请输入姓名', trigger: 'blur' }
   ],
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ],
-  idCard: [
-    { required: true, message: '请输入身份证号', trigger: 'blur' },
-    { pattern: /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/, message: '请输入正确的身份证号', trigger: 'blur' }
+  sex: [
+    { required: true, message: '请选择性别', trigger: 'change' }
+  ],
+  image: [
+    { required: true, message: '请上传头像', trigger: 'change' }
   ]
 }
 
@@ -201,40 +238,50 @@ const rules = {
 const getRiderList = async () => {
   loading.value = true
   try {
-    // TODO: 调用获取骑手列表API
-    // const res = await getRiderListAPI({
-    //   page: currentPage.value,
-    //   pageSize: pageSize.value,
-    //   query: searchQuery.value
-    // })
-    // riderList.value = res.data.list
-    // total.value = res.data.total
+    const { data: res } = await queryAllQiShouApi()
+    if (res.code === 1) {
+      // 处理分页和搜索
+      let filteredList = res.data
+      if (searchQuery.value) {
+        filteredList = res.data.filter((item: any) => 
+          item.name.includes(searchQuery.value) || 
+          item.phone.includes(searchQuery.value)
+        )
+      }
+      total.value = filteredList.length
+      // 分页处理
+      const start = (currentPage.value - 1) * pageSize.value
+      const end = start + pageSize.value
+      riderList.value = filteredList.slice(start, end)
+      
+      // 更新统计数据
+      statistics.value = {
+        total: res.data.length,
+        online: res.data.filter((item: any) => item.status === 1).length,
+        delivering: res.data.filter((item: any) => item.status === 1).length,
+        resting: res.data.filter((item: any) => item.status === 0).length
+      }
+    }
   } catch (error) {
     console.error('获取骑手列表失败:', error)
+    ElMessage.error('获取骑手列表失败')
   } finally {
     loading.value = false
   }
 }
 
-// 获取统计数据
-const getStatistics = async () => {
-  try {
-    // TODO: 调用获取统计数据API
-    // const res = await getRiderStatisticsAPI()
-    // statistics.value = res.data
-  } catch (error) {
-    console.error('获取统计数据失败:', error)
-  }
-}
-
 // 新增骑手
 const handleAdd = () => {
-  dialogType.value = 'add'
   dialogVisible.value = true
   riderForm.value = {
+    account: '',
+    password: '',
     name: '',
     phone: '',
-    idCard: ''
+    sex: '男',
+    image: '',
+    imageFile: null,
+    status: 0
   }
 }
 
@@ -243,14 +290,33 @@ const submitRiderForm = async () => {
   if (!riderFormRef.value) return
   await riderFormRef.value.validate(async (valid) => {
     if (valid) {
+      if (!riderForm.value.imageFile) {
+        ElMessage.warning('请上传头像')
+        return
+      }
+
       try {
-        // TODO: 调用新增/编辑骑手API
-        // const res = await (dialogType.value === 'add' ? addRiderAPI : updateRiderAPI)(riderForm.value)
-        ElMessage.success(dialogType.value === 'add' ? '新增成功' : '编辑成功')
-        dialogVisible.value = false
-        getRiderList()
-      } catch (error) {
-        console.error(dialogType.value === 'add' ? '新增失败:' : '编辑失败:', error)
+        const formData = new FormData()
+        formData.append('status', String(riderForm.value.status))
+        formData.append('account', riderForm.value.account)
+        formData.append('password', riderForm.value.password)
+        formData.append('name', riderForm.value.name)
+        formData.append('phone', riderForm.value.phone)
+        formData.append('sex', riderForm.value.sex)
+        formData.append('image', riderForm.value.imageFile)
+
+        const { data: res } = await addQiShouApi(formData)
+        
+        if (res.code === 1) {
+          ElMessage.success('新增成功')
+          dialogVisible.value = false
+          getRiderList()
+        } else {
+          ElMessage.error(res.msg || '新增失败')
+        }
+      } catch (error: any) {
+        console.error('新增失败:', error)
+        ElMessage.error(error.response?.data?.msg || '新增失败')
       }
     }
   })
@@ -268,12 +334,16 @@ const handleDelete = (row: any) => {
     }
   ).then(async () => {
     try {
-      // TODO: 调用删除骑手API
-      // await deleteRiderAPI(row.id)
-      ElMessage.success('删除成功')
-      getRiderList()
-    } catch (error) {
+      const { data: res } = await deleteQiShouApi([row.id])
+      if (res.code === 1) {
+        ElMessage.success('删除成功')
+        getRiderList()
+      } else {
+        ElMessage.error(res.msg || '删除失败')
+      }
+    } catch (error: any) {
       console.error('删除失败:', error)
+      ElMessage.error(error.response?.data?.msg || '删除失败')
     }
   })
 }
@@ -346,9 +416,29 @@ const handleSearch = () => {
   getRiderList()
 }
 
+// 修改头像上传处理函数
+const handleAvatarSuccess = (uploadFile: any) => {
+  if (uploadFile.raw) {
+    riderForm.value.image = URL.createObjectURL(uploadFile.raw)
+    riderForm.value.imageFile = uploadFile.raw
+  }
+}
+
+const beforeAvatarUpload = (file: File) => {
+  const isJPG = file.type === 'image/jpeg' || file.type === 'image/png'
+  const isLt2M = file.size / 1024 / 1024 < 2
+
+  if (!isJPG) {
+    ElMessage.error('上传头像图片只能是 JPG/PNG 格式!')
+  }
+  if (!isLt2M) {
+    ElMessage.error('上传头像图片大小不能超过 2MB!')
+  }
+  return isJPG && isLt2M
+}
+
 onMounted(() => {
   getRiderList()
-  getStatistics()
 })
 </script>
 
@@ -412,6 +502,37 @@ onMounted(() => {
     margin-top: 20px;
     display: flex;
     justify-content: flex-end;
+  }
+
+  .avatar-uploader {
+    :deep(.el-upload) {
+      border: 1px dashed #d9d9d9;
+      border-radius: 6px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: var(--el-transition-duration-fast);
+
+      &:hover {
+        border-color: var(--el-color-primary);
+      }
+    }
+  }
+
+  .avatar-uploader-icon {
+    font-size: 28px;
+    color: #8c939d;
+    width: 100px;
+    height: 100px;
+    text-align: center;
+    line-height: 100px;
+  }
+
+  .avatar {
+    width: 100px;
+    height: 100px;
+    display: block;
+    object-fit: cover;
   }
 }
 </style>

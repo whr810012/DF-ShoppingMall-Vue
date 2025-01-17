@@ -105,6 +105,12 @@ const handleUpdate = (row: Employee) => {
 
 // 修改管理员状态
 const handleStatusChange = async (row: Employee) => {
+  // 添加自我状态修改检查
+  if (row.id === userInfoStore.userInfo?.id) {
+    ElMessage.warning('不能修改自己的状态')
+    return
+  }
+
   try {
     const newStatus = row.status === 1 ? 0 : 1
     await updateAdminApi({
@@ -194,6 +200,11 @@ const canManage = (row?: Employee) => {
 
 // 添加新的方法
 const handleAdd = () => {
+  // 添加权限检查
+  if (userInfoStore.userInfo?.sorct !== 1) {
+    ElMessage.warning('只有超级管理员才能新增管理员')
+    return
+  }
   dialogVisible.value = true
 }
 
@@ -232,12 +243,9 @@ const submitAdd = async () => {
           ElMessage.success('添加管理员成功')
           handleClose()
           init() // 刷新列表
-        } else {
-          ElMessage.error(res.data.msg)
         }
       } catch (error) {
-        console.error('添加失败:', error)
-        ElMessage.error('添加失败')
+        return
       }
     }
   })
@@ -266,7 +274,12 @@ init()
           </template>
         </el-input>
 
-        <el-button type="primary" @click="handleAdd">
+        <el-button 
+          type="primary" 
+          @click="handleAdd"
+          :disabled="userInfoStore.userInfo?.sorct !== 1"
+          :title="userInfoStore.userInfo?.sorct !== 1 ? '只有超级管理员才能新增管理员' : ''"
+        >
           <el-icon><Plus /></el-icon>添加管理员
         </el-button>
       </div>
@@ -311,8 +324,8 @@ init()
               type="primary"
               link
               @click="handleStatusChange(row)"
-              :disabled="!canManage()"
-              :title="!canManage() ? '仅超级管理员可操作' : ''"
+              :disabled="!canManage(row) || row.id === userInfoStore.userInfo?.id"
+              :title="row.id === userInfoStore.userInfo?.id ? '不能修改自己的状态' : (!canManage() ? '仅超级管理员可操作' : '')"
             >
               {{ row.status === 1 ? '禁用' : '启用' }}
             </el-button>

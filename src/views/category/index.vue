@@ -155,13 +155,16 @@ const handleSave = async () => {
     await amendSortApi({
       id: editingCategory.value.id,
       name: editingCategory.value.name
+    }).then(res => {
+      if (res.data.code !== 0) {
+        ElMessage({
+          type: 'success',
+          message: '修改成功'
+        })
+        dialogVisible.value = false
+        init() // 刷新数据
+      }
     })
-    ElMessage({
-      type: 'success',
-      message: '修改成功'
-    })
-    dialogVisible.value = false
-    init() // 刷新数据
   } catch (error) {
     ElMessage({
       type: 'error',
@@ -195,10 +198,6 @@ const handleAdd = async () => {
 
     // 添加结果判断
     if (res.code === 0) {
-      ElMessage({
-        type: 'error',
-        message: res.msg || '添加失败'  // 显示后端返回的错误信息
-      })
       return
     }
     
