@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { reactive, ref } from 'vue'
-import { getEmployeeByIdAPI, updateEmployeeAPI } from '@/api/employee'
+import { queryAdminApi, updateAdminApi } from '@/api/admin'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useUserInfoStore } from '@/store'
@@ -12,12 +12,12 @@ const formLabelWidth = '60px'
 const id = ref()
 const form = reactive({
   id: 0,
-  name: '',
+  adminName: '',
   account: '',
-  phone: '',
-  age: '',
-  gender: '',
-  pic: '',
+  password: '',
+  status: 1,
+  sorct: 0,
+  createTime: ''
 })
 const genders = [
   {
@@ -50,30 +50,15 @@ const checkAge = (rule: any, value: string, callback: (error?: Error) => void) =
   }
 }
 const rules = {
-  name: [
+  adminName: [
     { required: true, trigger: 'blur', message: '不能为空' },
     { min: 2, message: '姓名长度不能少于2个字符', trigger: 'blur' },
     { max: 20, message: '姓名长度不能超过20个字符', trigger: 'blur' },
   ],
-  account: [
-    { required: true, trigger: 'blur', message: '不能为空' },
-    { pattern: /^[a-zA-Z0-9]{1,10}$/, message: '用户名必须是1-10的字母数字', trigger: 'blur' }
-  ],
   password: [
     { required: true, trigger: 'blur', message: '不能为空' },
     { pattern: /^\S{6,15}$/, message: '密码必须是6-15的非空字符', trigger: 'blur' }
-  ],
-  phone: [
-    { required: true, trigger: 'blur', message: '不能为空' },
-    { pattern: /^1[3-9]\d{9}$/, message: '手机号格式不正确', trigger: 'blur' }
-  ],
-  age: [
-    { required: true, trigger: 'blur', message: '不能为空' },
-    { validator: checkAge, trigger: 'blur'}
-  ],
-  gender: [
-    { required: true, trigger: 'blur', message: '不能为空' },
-  ],
+  ]
 }
 
 
@@ -120,39 +105,40 @@ const submit = async () => {
   try {
     const valid = await updateRef.value.validate();
     if (valid) {
-      console.log('submit')
-      console.log(form)
-      // 在这里执行表单提交操作，比如调用updateUser(form)方法等
-      const res = await updateEmployeeAPI(form)
-      if (res.data.code !== 0) {
-        // 响应拦截器已经用ElMessage打印了错误信息，这里直接return
+      const res = await updateAdminApi({
+        id: form.id,
+        adminName: form.adminName,
+        account: form.account,
+        password: form.password,
+        status: form.status,
+        sorct: form.sorct,
+        createTime: form.createTime
+      })
+      
+      if (res.data.code !== 1) {
         return false
       }
-      // 如果修改的是当前用户信息，那么可能会更新当前登录系统管理员的账号，即需要更新store的account值
-      console.log('当前userInfo.id')
-      console.log(userInfoStore.userInfo)
+
+      // 如果修改的是当前用户信息，更新store
       if (userInfoStore.userInfo && userInfoStore.userInfo.id === form.id) {
-        let { data: employee } = await getEmployeeByIdAPI(form.id)
-        console.log('查询修改后的管理员')
-        console.log(employee)
+        const { data: admin } = await queryAdminApi(form.id)
         if (userInfoStore.userInfo) {
-          userInfoStore.userInfo.account = employee.data.account
+          userInfoStore.userInfo.account = admin.data.account
         }
       }
-      // 然后进行 消息提示，页面跳转 等操作
+
       ElMessage({
         message: '修改管理员信息成功',
         type: 'success',
+        duration: 2000  // 显示2秒
       })
-      router.push({
-        path: '/employee',
-      })
-    } else {
-      console.log('form not valid!');
-      return false;
+      
+      // 重新获取最新数据
+      init()
     }
   } catch (error) {
-    console.error('执行过程中失败:', error);
+    console.error('修改失败:', error)
+    ElMessage.error('修改失败')
   }
 }
 // 取消修改
@@ -163,100 +149,258 @@ const cancel = () => {
 }
 
 const init = async () => {
-  console.log(route.query)
-  if (route.query) {
-    id.value = route.query.id || 0
-    form.id = id.value
-    let employee = await getEmployeeByIdAPI(id.value)
-    // 真服了，下面这种常规写法丢失响应式！因为对象重新赋值会分配新的引用地址，其指向的对象是新对象，因此丢失响应式！
-    // form = song.data.data
-    // 重新赋值，不改变引用的写法
-    console.log(employee)
-    Object.assign(form, employee.data.data)
-    console.log(form)
-  } else {
-    console.log('没有id')
+  if (route.query.id) {
+    id.value = route.query.id
+    form.id = Number(id.value)
+    try {
+      const { data: res } = await queryAdminApi(form.id)
+      if (res.code === 1) {
+        // 直接使用接口返回的数据结构
+        Object.assign(form, res.data)
+      }
+    } catch (error) {
+      console.error('获取管理员信息失败:', error)
+      ElMessage.error('获取管理员信息失败')
+    }
   }
-  console.log(id)
 }
 
 init()
 </script>
 
 <template>
-  <h1>修改管理员页</h1>
-  <el-card>
-    <el-form :model="form" :rules="rules" ref="updateRef">
-      <el-form-item label="姓名" :label-width="formLabelWidth" prop="name">
-        <el-input v-model="form.name" autocomplete="off" />
-      </el-form-item>
-      <el-form-item label="账号" :label-width="formLabelWidth" prop="account">
-        <el-input v-model="form.account" autocomplete="off" />
-      </el-form-item>
-      <el-form-item label="电话" :label-width="formLabelWidth" prop="phone">
-        <el-input v-model="form.phone" autocomplete="off" />
-      </el-form-item>
-      <el-form-item label="年龄" :label-width="formLabelWidth" prop="age">
-        <el-input v-model="form.age" autocomplete="off" />
-      </el-form-item>
-      <el-form-item label="性别" :label-width="formLabelWidth" prop="gender">
-        <el-select clearable v-model="form.gender" placeholder="选择分类类型">
-          <el-option v-for="item in genders" :key="item.value" :label="item.label" :value="item.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="头像" :label-width="formLabelWidth" prop="pic">
-        <img class="the_img" v-if="!form.pic" src="/src/assets/image/user_default.png" alt="" />
-        <img class="the_img" v-else :src="form.pic" alt="" />
-        <input type="file" accept="image/*" style="display: none" ref="inputRef1" @change="onFileChange1" />
-        <el-button type="primary" @click="chooseImg">
-          <el-icon style="font-size: 15px; margin-right: 10px;">
-            <Plus />
-          </el-icon>
-          选择图片
-        </el-button>
-      </el-form-item>
-    </el-form>
-    <el-form-item class="btn_box">
-      <el-button class="submit_btn" type="success" @click="submit">修改</el-button>
-      <el-button class="cancel_btn" type="info" plain @click="cancel">取消</el-button>
-    </el-form-item>
-  </el-card>
+  <div class="update-container">
+    <h1>修改管理员信息</h1>
+    <el-card>
+      <el-form :model="form" :rules="rules" ref="updateRef">
+        <el-form-item label="姓名" prop="adminName">
+          <el-input v-model="form.adminName" placeholder="请输入管理员姓名" />
+        </el-form-item>
+        <el-form-item label="账号" prop="account">
+          <el-input 
+            v-model="form.account" 
+            disabled 
+            placeholder="账号不可修改" 
+          />
+        </el-form-item>
+        <el-form-item label="密码" prop="password">
+          <el-input 
+            v-model="form.password" 
+            type="password" 
+            show-password 
+            placeholder="请输入密码"
+          />
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-tag 
+            :type="form.sorct === 1 ? 'danger' : 'info'"
+            effect="plain"
+            class="status-tag"
+          >
+            {{ form.sorct === 1 ? '超级管理员' : '普通管理员' }}
+          </el-tag>
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-tag 
+            :type="form.status === 1 ? 'success' : 'danger'"
+            effect="plain"
+            class="status-tag"
+          >
+            {{ form.status === 1 ? '启用' : '禁用' }}
+          </el-tag>
+        </el-form-item>
+        <el-form-item label="创建时间">
+          <span>{{ form.createTime }}</span>
+        </el-form-item>
+      </el-form>
+      <div class="btn-container">
+        <el-button class="submit-btn" type="success" @click="submit">确认修改</el-button>
+        <el-button class="cancel-btn" @click="cancel">取消</el-button>
+      </div>
+    </el-card>
+  </div>
 </template>
 
 <style lang="less" scoped>
-h1 {
-  font-size: 20px;
-  text-align: center;
-  margin: 20px;
-}
-
-.el-form {
-  margin-top: 30px;
-  width: 500px;
-  margin: 0 auto;
-}
-
-img {
-  width: 50px;
-  height: 50px;
-  margin-right: 20px;
-}
-
-.btn_box {
-  display: flex;
-  justify-content: center;
-
-
-  .submit_btn {
-    width: 100px;
-    height: 40px;
-    margin: 30px 0 0 400px;
+.update-container {
+  padding: 24px;
+  background-color: #f5f7fa;
+  min-height: 100vh;
+  
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #1f2f3d;
+    margin-bottom: 24px;
+    padding-left: 4px;
   }
 
-  .cancel_btn {
-    width: 100px;
-    height: 40px;
-    margin: 30px 0 0 200px;
+  .el-card {
+    max-width: 580px;
+    margin: 0 auto;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+    
+    :deep(.el-card__body) {
+      padding: 32px 40px;
+    }
+
+    .el-form {
+      .el-form-item {
+        margin-bottom: 28px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        // 调整label样式
+        :deep(.el-form-item__label) {
+          font-weight: 500;
+          color: #606266;
+          width: 90px !important;  // 统一label宽度
+          padding-right: 16px;
+        }
+
+        // 输入框样式
+        :deep(.el-input) {
+          .el-input__wrapper {
+            padding: 1px 15px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            box-shadow: 0 0 0 1px #dcdfe6 inset;
+            
+            &:hover {
+              box-shadow: 0 0 0 1px #c0c4cc inset;
+            }
+            
+            &.is-focus {
+              box-shadow: 0 0 0 1px #409eff inset;
+            }
+
+            .el-input__inner {
+              height: 36px;
+              line-height: 36px;
+              font-size: 14px;
+              
+              &::placeholder {
+                color: #c0c4cc;
+              }
+            }
+          }
+        }
+
+        // 标签样式
+        .status-tag {
+          padding: 6px 16px;
+          font-size: 13px;
+          border-radius: 4px;
+          font-weight: normal;
+          height: 32px;
+          line-height: 20px;  // 调整行高
+          display: inline-flex;  // 使用 flex 布局
+          align-items: center;  // 垂直居中
+          justify-content: center;  // 水平居中
+          
+          &.el-tag--danger {
+            color: #f56c6c;
+            background-color: #fef0f0;
+            border-color: #fde2e2;
+          }
+          
+          &.el-tag--success {
+            color: #67c23a;
+            background-color: #f0f9eb;
+            border-color: #e1f3d8;
+          }
+          
+          &.el-tag--info {
+            color: #909399;
+            background-color: #f4f4f5;
+            border-color: #e9e9eb;
+          }
+        }
+
+        // 创建时间样式
+        span {
+          color: #606266;
+          font-size: 14px;
+          line-height: 36px;
+          display: inline-block;
+        }
+
+        // 禁用输入框样式
+        :deep(.el-input.is-disabled) {
+          .el-input__wrapper {
+            background-color: #f5f7fa;
+            box-shadow: 0 0 0 1px #e4e7ed inset;
+            cursor: not-allowed;
+            
+            .el-input__inner {
+              color: #909399;
+              -webkit-text-fill-color: #909399;
+              cursor: not-allowed;
+            }
+            
+            &:hover {
+              box-shadow: 0 0 0 1px #e4e7ed inset;
+            }
+          }
+        }
+
+        :deep(.el-form-item__content) {
+          min-height: 36px;
+          display: flex;
+          align-items: center;
+        }
+      }
+    }
+
+    // 按钮容器样式
+    .btn-container {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid #ebeef5;
+
+      .el-button {
+        min-width: 120px;
+        padding: 12px 24px;
+        font-size: 14px;
+        border-radius: 4px;
+        transition: all 0.3s;
+        
+        &.submit-btn {
+          background-color: #67c23a;
+          border-color: #67c23a;
+          
+          &:hover {
+            background-color: #85ce61;
+            border-color: #85ce61;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(103, 194, 58, 0.2);
+          }
+          
+          &:active {
+            transform: translateY(0);
+          }
+        }
+        
+        &.cancel-btn {
+          &:hover {
+            background-color: #f5f7fa;
+            border-color: #dcdfe6;
+            color: #606266;
+            transform: translateY(-1px);
+          }
+          
+          &:active {
+            transform: translateY(0);
+          }
+        }
+      }
+    }
   }
 }
 </style>

@@ -42,7 +42,7 @@ const menuList = [
   {
     title: '骑手管理',
     path: '/dashboard',
-    icon: 'pieChart',
+    icon: 'Van',
   },
   {
     title: '管理员设置',
@@ -102,10 +102,10 @@ const getActiveAside = () => {
 
 // 初始化时获取营业状态
 const init = async () => {
-  const { data: res } = await getStatusAPI()
-  console.log('初始化后的status status_active', res.data)
-  status.value = res.data
-  status_active.value = res.data
+  // const { data: res } = await getStatusAPI()
+  // console.log('初始化后的status status_active', res.data)
+  // status.value = res.data
+  // status_active.value = res.data
 }
 init()
 
@@ -360,8 +360,14 @@ onBeforeUnmount(() => {
       </el-header>
       <el-container class="box1">
         <!-- 左侧导航菜单区域 -->
-        <el-menu :width="isCollapse ? '640px' : '200px'" :default-active="getActiveAside()" :collapse="isCollapse"
-          style="background-color: #67c23a" text-color="#fff" unique-opened router>
+        <el-menu 
+          :width="isCollapse ? '80px' : '260px'" 
+          :default-active="getActiveAside()" 
+          :collapse="isCollapse"
+          text-color="#303133"
+          active-text-color="#67c23a"
+          unique-opened 
+          router>
           <!-- 加了router模式，就会在激活导航时以 :index 作为path进行路径跳转（nb!不用自己写路由了!） -->
           <!-- 根据不同情况选择menu-item/submenu进行遍历，所以外层套template遍历，里面组件做判断看是否该次遍历到自己 -->
           <template v-for="item in menuList" :key="item.path">
@@ -378,7 +384,7 @@ onBeforeUnmount(() => {
           <el-main>
             <router-view></router-view>
           </el-main>
-          <el-footer>© 2024.5.21 hanye-take-out Tech and Fun. All rights reserved.</el-footer>
+          <!-- <el-footer>© 2024.5.21 hanye-take-out Tech and Fun. All rights reserved.</el-footer> -->
         </el-container>
       </el-container>
     </el-container>
@@ -456,6 +462,13 @@ onBeforeUnmount(() => {
 .box1 {
   display: flex;
   height: 92vh;
+  
+  .el-menu {
+    padding: 20px 10px;
+    background-color: #fff !important;
+    border-right: none;
+    width: 260px;
+  }
 }
 
 .mycontainer {
@@ -572,22 +585,40 @@ a:hover {
 }
 
 .el-menu {
-  padding: 30px 0 0 0;
-  background-color: #445566;
+  padding: 20px 10px;
+  background-color: #fff;
 }
 
 .el-menu-item {
-  margin: 10px;
-  padding-right: 30px;
-  border-radius: 10px;
+  margin: 5px 0;
+  padding: 0 20px !important;
+  border-radius: 6px;
+  height: 56px !important;
+  line-height: 56px !important;
+  font-size: 16px !important;
+  
+  .el-icon {
+    font-size: 18px;
+    margin-right: 16px;
+  }
+  
+  &:hover {
+    background-color: #f0f9eb !important;
+    color: #67c23a !important;
+  }
 }
 
 .el-menu-item.is-active {
-  background-color: #22ccff;
-  color: #fff;
+  background-color: #f0f9eb !important;
+  color: #67c23a !important;
+  font-weight: bold;
+  
+  .el-icon {
+    color: #67c23a !important;
+  }
 }
 
 .el-menu--collapse {
-  width: 85px;
+  width: 80px;
 }
 </style>

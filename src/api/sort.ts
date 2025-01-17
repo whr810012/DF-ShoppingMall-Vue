@@ -20,7 +20,7 @@ export const deleteSortApi = (ids: any) => {
   return request({
     url: '/admin/sort/delete',
     method: 'post',
-    data: { ids }
+    data:  ids 
   })
 }
 

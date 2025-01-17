@@ -18,9 +18,9 @@ export const updateAdminApi = (params: any) => {
 
 export const deleteAdminApi = (ids: any) => {
   return request({
-    url: 'admin/delete',
+    url: '/admin/detele',
     method: 'post',
-    data: { ids }
+    data:  ids 
   })
 }
 
