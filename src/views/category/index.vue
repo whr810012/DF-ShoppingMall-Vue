@@ -180,7 +180,28 @@ const addForm = reactive({
 // 修改新增分类的处理函数
 const handleAdd = async () => {
   try {
-    await addSortApi({ name: addForm.name })  // 只传name
+    if (!addForm.name.trim()) {
+      ElMessage({
+        type: 'warning',
+        message: '请输入分类名称'
+      })
+      return
+    }
+    
+    const { data: res } = await addSortApi({ 
+      name: addForm.name.trim(),
+      status: 1  // 默认启用状态
+    })
+
+    // 添加结果判断
+    if (res.code === 0) {
+      ElMessage({
+        type: 'error',
+        message: res.msg || '添加失败'  // 显示后端返回的错误信息
+      })
+      return
+    }
+    
     ElMessage({
       type: 'success',
       message: '添加成功'
@@ -189,10 +210,10 @@ const handleAdd = async () => {
     // 重置表单
     addForm.name = ''
     init() // 刷新数据
-  } catch (error) {
+  } catch (error: any) {
     ElMessage({
       type: 'error',
-      message: '添加失败'
+      message: error.response?.data?.msg || '添加失败'  // 尝试获取后端返回的错误信息
     })
   }
 }

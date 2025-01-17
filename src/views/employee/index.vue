@@ -232,6 +232,8 @@ const submitAdd = async () => {
           ElMessage.success('添加管理员成功')
           handleClose()
           init() // 刷新列表
+        } else {
+          ElMessage.error(res.data.msg)
         }
       } catch (error) {
         console.error('添加失败:', error)
