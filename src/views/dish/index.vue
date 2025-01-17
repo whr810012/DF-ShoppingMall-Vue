@@ -55,7 +55,140 @@ const options = [
   }
 ]
 
+// 弹窗相关数据
+const router = useRouter()
+const dialogVisible = ref(false)
+const formData = reactive({
+  name: '',
+  present: '',
+  price: 0,
+  number: 0,
+  sortId: null as number | null,
+  status: 1,  // 默认上架状态
+  avatar: [] as File[]
+})
 
+// 图片上传相关
+const fileList = ref<any[]>([])
+const handleFileChange = (uploadFile: any) => {
+  if (fileList.value.length >= 3) {
+    ElMessage.warning('最多只能上传3张图片')
+    return false
+  }
+  // 获取原始的File对象
+  const file = uploadFile.raw
+  if (!file) {
+    ElMessage.error('文件上传失败')
+    return false
+  }
+  
+  // 验证文件类型
+  const isImage = file.type.startsWith('image/')
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件')
+    return false
+  }
+  
+  // 验证文件大小（限制为2MB）
+  const isLt2M = file.size / 1024 / 1024 < 2
+  if (!isLt2M) {
+    ElMessage.error('图片大小不能超过2MB')
+    return false
+  }
+  
+  fileList.value.push({
+    url: URL.createObjectURL(file),
+    raw: file
+  })
+  formData.avatar.push(file)
+  return false
+}
+
+const handleRemove = (file: any) => {
+  const index = fileList.value.findIndex(item => item.url === file.url)
+  if (index !== -1) {
+    fileList.value.splice(index, 1)
+    formData.avatar.splice(index, 1)
+  }
+}
+
+// 提交表单
+const submitForm = async () => {
+  try {
+    // 表单验证
+    if (!formData.name.trim()) {
+      ElMessage.warning('请输入商品名称')
+      return
+    }
+    if (!formData.present.trim()) {
+      ElMessage.warning('请输入商品描述')
+      return
+    }
+    if (formData.price <= 0) {
+      ElMessage.warning('请输入正确的商品价格')
+      return
+    }
+    if (formData.number < 0) {
+      ElMessage.warning('请输入正确的库存数量')
+      return
+    }
+    if (formData.avatar.length === 0) {
+      ElMessage.warning('请上传商品图片')
+      return
+    }
+
+    const form = new FormData()
+    form.append('name', formData.name.trim())
+    form.append('present', formData.present.trim())
+    form.append('price', formData.price.toString())
+    form.append('number', formData.number.toString())
+    if (formData.sortId) {
+      form.append('sortId', formData.sortId.toString())
+    }
+    
+    // 添加图片文件
+    formData.avatar.forEach((file, index) => {
+      form.append('image', file, `image${index + 1}.${file.name.split('.').pop()}`)
+    })
+
+    const { data: res } = await addGoodsApi(form)
+    if (res.code === 1) {
+      ElMessage.success('添加商品成功')
+      dialogVisible.value = false
+      resetForm()
+      init()
+    } else {
+      ElMessage.error(res.msg || '添加商品失败')
+    }
+  } catch (error) {
+    console.error('添加商品失败:', error)
+    ElMessage.error('添加商品失败')
+  }
+}
+
+// 重置表单
+const resetForm = () => {
+  formData.name = ''
+  formData.present = ''
+  formData.price = 0
+  formData.number = 0
+  formData.sortId = null
+  formData.status = 1
+  formData.avatar = []
+  fileList.value = []
+}
+
+// 修改打开新增商品的方法
+const to_add_update = (row?: any) => {
+  if (row && row.id) {
+    router.push({
+      path: '/dish/add',
+      query: { id: row.id }
+    })
+  } else {
+    dialogVisible.value = true
+  }
+}
 
 // ------ 方法 ------
 
@@ -151,20 +284,6 @@ const handleSelectionChange = (val: dish[]) => {
   console.log('multiSelection.value', multiSelection.value)
 }
 
-// 新增和修改菜品都是同一个页面，不过要根据路径传参的方式来区分
-const router = useRouter()
-const to_add_update = (row?: any) => {
-  console.log('看有没有传过来，来判断要add还是update', row)
-  if (row && row.id) {
-    router.push({
-      path: '/dish/add',
-      query: { id: row.id }
-    })
-  } else {
-    router.push('/dish/add')
-  }
-}
-
 // 修改菜品状态
 const change_btn = async (row: any) => {
   try {
@@ -180,22 +299,17 @@ const change_btn = async (row: any) => {
     formData.append('sortId', row.sortId ? row.sortId.toString() : '')
     formData.append('status', row.status === 1 ? '0' : '1')  // 切换状态
     
-    // 处理图片数组
-    if (row.avatar && row.avatar.length > 0) {
-      row.avatar.forEach((url: string) => {
-        formData.append('avatar', url)
-      })
-    }
 
     console.log('更新数据:', formData)
-    const res = await updateGoodsApi(formData)
-    if (res.data.code === 0) {
+    await updateGoodsApi(formData).then(res =>{
+      if (res.data.code === 1) {
       ElMessage({
         type: 'success',
         message: `${row.status === 1 ? '下架' : '上架'}成功`,
       })
       init()
     }
+    })
   } catch (error) {
     console.error('更新失败:', error)
     ElMessage({
@@ -443,6 +557,81 @@ const resetSearch = () => {
       @current-change="handleCurrentChange" 
       @size-change="handleSizeChange" 
     />
+
+    <el-dialog
+      v-model="dialogVisible"
+      title="新增商品"
+      width="50%"
+      @close="resetForm"
+    >
+      <el-form :model="formData" label-width="100px">
+        <el-form-item label="商品名称" required>
+          <el-input v-model="formData.name" placeholder="请输入商品名称" />
+        </el-form-item>
+        <el-form-item label="商品描述" required>
+          <el-input
+            v-model="formData.present"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入商品描述"
+          />
+        </el-form-item>
+        <el-form-item label="商品价格" required>
+          <el-input-number
+            v-model="formData.price"
+            :min="0"
+            :precision="2"
+            :step="0.1"
+          />
+        </el-form-item>
+        <el-form-item label="库存数量" required>
+          <el-input-number
+            v-model="formData.number"
+            :min="0"
+            :step="1"
+          />
+        </el-form-item>
+        <el-form-item label="商品分类">
+          <el-select v-model="formData.sortId" placeholder="请选择商品分类" clearable>
+            <el-option
+              v-for="item in categoryList"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="商品图片" required>
+          <el-upload
+            class="upload-demo"
+            action="#"
+            :auto-upload="false"
+            :show-file-list="true"
+            :file-list="fileList"
+            :on-change="handleFileChange"
+            :on-remove="handleRemove"
+            accept="image/jpeg,image/png,image/gif"
+            multiple
+            list-type="picture-card"
+          >
+            <template #trigger>
+              <el-icon><Plus /></el-icon>
+            </template>
+            <template #tip>
+              <div class="el-upload__tip">
+                只能上传jpg/png/gif文件，且不超过2MB
+              </div>
+            </template>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitForm">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </el-card>
 </template>
 
@@ -555,6 +744,26 @@ const resetSearch = () => {
     margin-top: 20px;
     display: flex;
     justify-content: center;
+  }
+
+  .dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+  }
+
+  .upload-demo {
+    :deep(.el-upload--picture-card) {
+      width: 120px;
+      height: 120px;
+      line-height: 120px;
+    }
+    :deep(.el-upload-list--picture-card) {
+      .el-upload-list__item {
+        width: 120px;
+        height: 120px;
+      }
+    }
   }
 }
 
