@@ -58,18 +58,24 @@ const options = [
 // 弹窗相关数据
 const router = useRouter()
 const dialogVisible = ref(false)
+const dialogTitle = ref('新增商品')
+const isEdit = ref(false)
 const formData = reactive({
+  id: null as number | null,
   name: '',
   present: '',
   price: 0,
   number: 0,
   sortId: null as number | null,
   status: 1,  // 默认上架状态
-  avatar: [] as File[]
+  avatar: [] as File[],
+  discount: 1 // 默认不打折
 })
 
 // 图片上传相关
 const fileList = ref<any[]>([])
+const oldImages = ref<string[]>([]) // 用于存储修改时的原有图片
+
 const handleFileChange = (uploadFile: any) => {
   if (fileList.value.length >= 3) {
     ElMessage.warning('最多只能上传3张图片')
@@ -98,7 +104,8 @@ const handleFileChange = (uploadFile: any) => {
   
   fileList.value.push({
     url: URL.createObjectURL(file),
-    raw: file
+    raw: file,
+    isNew: true // 标记为新上传的图片
   })
   formData.avatar.push(file)
   return false
@@ -107,9 +114,58 @@ const handleFileChange = (uploadFile: any) => {
 const handleRemove = (file: any) => {
   const index = fileList.value.findIndex(item => item.url === file.url)
   if (index !== -1) {
+    // 如果是新上传的图片,从formData.avatar中移除
+    if (fileList.value[index].isNew) {
+      const avatarIndex = formData.avatar.findIndex(f => f === fileList.value[index].raw)
+      if (avatarIndex !== -1) {
+        formData.avatar.splice(avatarIndex, 1)
+      }
+    } else {
+      // 如果是原有图片,从oldImages中移除
+      const oldIndex = oldImages.value.findIndex(url => url === file.url)
+      if (oldIndex !== -1) {
+        oldImages.value.splice(oldIndex, 1)
+      }
+    }
     fileList.value.splice(index, 1)
-    formData.avatar.splice(index, 1)
   }
+}
+
+// 修改打开新增/编辑商品的方法
+const to_add_update = async (row?: any) => {
+  resetForm()
+  if (row && row.id) {
+    isEdit.value = true
+    dialogTitle.value = '修改商品'
+    // 获取商品详情
+    const { data: res } = await getGoodsDetailApi(row.id)
+    if (res.code === 1) {
+      // 填充表单数据
+      formData.id = res.data.id
+      formData.name = res.data.name
+      formData.present = res.data.present
+      formData.price = res.data.price
+      formData.number = res.data.number
+      formData.sortId = res.data.sortId
+      formData.status = res.data.status
+      formData.discount = res.data.discount
+      
+      // 处理图片
+      if (res.data.avatar && res.data.avatar.length > 0) {
+        oldImages.value = [...res.data.avatar] // 保存原有图片URL
+        // 将图片URL转换为展示用的fileList
+        fileList.value = res.data.avatar.map((url: string) => ({
+          url,
+          name: url.split('/').pop() || '',
+          isNew: false // 标记为原有图片
+        }))
+      }
+    }
+  } else {
+    isEdit.value = false
+    dialogTitle.value = '新增商品'
+  }
+  dialogVisible.value = true
 }
 
 // 提交表单
@@ -132,42 +188,61 @@ const submitForm = async () => {
       ElMessage.warning('请输入正确的库存数量')
       return
     }
-    if (formData.avatar.length === 0) {
+    if (!isEdit.value && formData.avatar.length === 0) {
       ElMessage.warning('请上传商品图片')
       return
     }
 
     const form = new FormData()
+    if (isEdit.value && formData.id) {
+      form.append('id', formData.id.toString())
+    }
     form.append('name', formData.name.trim())
     form.append('present', formData.present.trim())
     form.append('price', formData.price.toString())
     form.append('number', formData.number.toString())
+    form.append('discount', formData.discount.toString())
     if (formData.sortId) {
       form.append('sortId', formData.sortId.toString())
     }
+    form.append('status', formData.status.toString())
     
-    // 添加图片文件
-    formData.avatar.forEach((file, index) => {
-      form.append('image', file, `image${index + 1}.${file.name.split('.').pop()}`)
-    })
+    // 处理图片
+    if (isEdit.value) {
+      // 修改时：添加原有图片的URL数组
+        form.append('avatar', JSON.stringify(oldImages.value))
+      // 添加新上传的图片文件
+      formData.avatar.forEach((file, index) => {
+        form.append('image', file, `image${index + 1}.${file.name.split('.').pop()}`)
+      })
+    } else {
+      // 新增时：只处理新上传的图片
+      formData.avatar.forEach((file, index) => {
+        form.append('image', file, `image${index + 1}.${file.name.split('.').pop()}`)
+      })
+    }
 
-    const { data: res } = await addGoodsApi(form)
+    const { data: res } = isEdit.value ? 
+      await updateGoodsApi(form) : 
+      await addGoodsApi(form)
+    
     if (res.code === 1) {
-      ElMessage.success('添加商品成功')
+      ElMessage.success(isEdit.value ? '修改商品成功' : '添加商品成功')
       dialogVisible.value = false
       resetForm()
       init()
     } else {
-      ElMessage.error(res.msg || '添加商品失败')
+      ElMessage.error(res.msg || (isEdit.value ? '修改商品失败' : '添加商品失败'))
     }
   } catch (error) {
-    console.error('添加商品失败:', error)
-    ElMessage.error('添加商品失败')
+    console.error(isEdit.value ? '修改商品失败:' : '添加商品失败:', error)
+    ElMessage.error(isEdit.value ? '修改商品失败' : '添加商品失败')
   }
 }
 
 // 重置表单
 const resetForm = () => {
+  formData.id = null
   formData.name = ''
   formData.present = ''
   formData.price = 0
@@ -175,19 +250,10 @@ const resetForm = () => {
   formData.sortId = null
   formData.status = 1
   formData.avatar = []
+  formData.discount = 1
   fileList.value = []
-}
-
-// 修改打开新增商品的方法
-const to_add_update = (row?: any) => {
-  if (row && row.id) {
-    router.push({
-      path: '/dish/add',
-      query: { id: row.id }
-    })
-  } else {
-    dialogVisible.value = true
-  }
+  oldImages.value = [] // 重置原有图片数组
+  isEdit.value = false
 }
 
 // ------ 方法 ------
@@ -351,7 +417,7 @@ const deleteBatch = (row?: any) => {
           })
           console.log('批量删除ids:', ids)
           const res = await deleteGoodsApi(ids)
-          if (res.data.code === 0) {
+          if (res.data.code === 1) {
             ElMessage({
               type: 'success',
               message: '删除成功',
@@ -363,7 +429,7 @@ const deleteBatch = (row?: any) => {
         else {
           console.log('单个删除id:', [row.id])
           const res = await deleteGoodsApi([row.id])
-          if (res.data.code === 0) {
+          if (res.data.code === 1) {
             ElMessage({
               type: 'success',
               message: '删除成功',
@@ -560,7 +626,7 @@ const resetSearch = () => {
 
     <el-dialog
       v-model="dialogVisible"
-      title="新增商品"
+      :title="dialogTitle"
       width="50%"
       @close="resetForm"
     >
@@ -584,6 +650,15 @@ const resetSearch = () => {
             :step="0.1"
           />
         </el-form-item>
+        <el-form-item label="折扣" required>
+          <el-input-number
+            v-model="formData.discount"
+            :min="0"
+            :max="10"
+            :precision="1"
+            :step="0.1"
+          />
+        </el-form-item>
         <el-form-item label="库存数量" required>
           <el-input-number
             v-model="formData.number"
@@ -601,7 +676,7 @@ const resetSearch = () => {
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="商品图片" required>
+        <el-form-item label="商品图片" :required="!isEdit">
           <el-upload
             class="upload-demo"
             action="#"

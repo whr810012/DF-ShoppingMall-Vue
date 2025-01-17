@@ -116,7 +116,7 @@ const to_add_update = (row?: any) => {
       query: { id: row.id }
     })
   } else {
-    router.push('/seckill/add')
+    dialogVisible.value = true
   }
 }
 
@@ -158,15 +158,15 @@ const deleteBatch = (row?: any) => {
         // 拿到当前 multiSelection.value 的所有id，然后调用批量删除接口
         let ids: number[] = multiSelection.value.map(item => item.id)
         let res = await deleteSeckillApi(ids)
+        showPageList()
         if (res.data.code != 0) return
       }
       // 2. 传入行数据，单个删除
       else {
         let res = await deleteSeckillApi([row.id])
-        if (res.data.code != 0) return
+        showPageList()
       }
       // 删除后刷新页面，更新数据
-      showPageList()
       ElMessage({
         type: 'success',
         message: '删除成功',
@@ -178,6 +178,109 @@ const deleteBatch = (row?: any) => {
         message: '取消删除',
       })
     })
+}
+
+// 表单数据
+const dialogVisible = ref(false)
+const formData = reactive({
+  name: '',
+  price: 0,
+  number: 0,
+  createTime: '',
+  endTime: '',
+  avatar: '',
+  image: null as File | null,
+})
+
+// 表单规则
+const rules = {
+  name: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
+  price: [
+    { required: true, message: '请输入商品价格', trigger: 'blur' },
+    { type: 'number', min: 0, message: '价格必须大于0', trigger: 'blur' }
+  ],
+  number: [
+    { required: true, message: '请输入商品数量', trigger: 'blur' },
+    { type: 'number', min: 1, message: '数量必须大于0', trigger: 'blur' }
+  ],
+  createTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
+  endTime: [{ required: true, message: '请选择结束时间', trigger: 'change' }],
+  image: [{ required: true, message: '请上传商品图片', trigger: 'change' }],
+}
+
+const formRef = ref()
+
+// 图片上传前的处理
+const beforeUpload = (file: File) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt2M = file.size / 1024 / 1024 < 2
+
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件！')
+    return false
+  }
+  if (!isLt2M) {
+    ElMessage.error('图片大小不能超过 2MB！')
+    return false
+  }
+
+  formData.image = file
+  const reader = new FileReader()
+  reader.readAsDataURL(file)
+  reader.onload = (e) => {
+    formData.avatar = e.target?.result as string
+  }
+  return false // 阻止自动上传
+}
+
+// 提交表单
+const submitForm = async () => {
+  if (!formRef.value) return
+  
+  await formRef.value.validate(async (valid: boolean) => {
+    if (valid) {
+      const form = new FormData()
+      form.append('name', formData.name)
+      form.append('price', formData.price.toString())
+      form.append('number', formData.number.toString())
+      form.append('createTime', formData.createTime)
+      form.append('endTime', formData.endTime)
+      if (formData.image) {
+        form.append('image', formData.image)
+      }
+
+      try {
+        // TODO: 调用添加秒杀商品API
+        dialogVisible.value = false
+        ElMessage.success('添加成功')
+        showPageList() // 刷新列表
+        resetForm()
+      } catch (error) {
+        ElMessage.error('添加失败')
+      }
+    }
+  })
+}
+
+// 重置表单
+const resetForm = () => {
+  if (formRef.value) {
+    formRef.value.resetFields()
+  }
+  formData.avatar = ''
+  formData.image = null
+}
+
+// 在 script setup 中添加预览相关的变量和方法
+const previewVisible = ref(false)
+const previewImage = ref('')
+
+// 处理图片预览
+const handlePreview = () => {
+  if (formData.avatar) {
+    previewVisible.value = true
+    previewImage.value = formData.avatar
+  }
 }
 </script>
 
@@ -276,43 +379,172 @@ const deleteBatch = (row?: any) => {
       @size-change="handleSizeChange" 
     />
   </el-card>
+
+  <!-- 新增秒杀商品弹窗 -->
+  <el-dialog
+    v-model="dialogVisible"
+    title="新增秒杀商品"
+    width="500px"
+    @close="resetForm"
+  >
+    <el-form
+      ref="formRef"
+      :model="formData"
+      :rules="rules"
+      label-width="100px"
+      class="seckill-form"
+    >
+      <el-form-item label="商品名称" prop="name">
+        <el-input v-model="formData.name" placeholder="请输入商品名称" />
+      </el-form-item>
+
+      <el-form-item label="商品价格" prop="price">
+        <el-input-number 
+          v-model="formData.price" 
+          :precision="2" 
+          :step="0.1" 
+          :min="0"
+          style="width: 100%"
+        />
+      </el-form-item>
+
+      <el-form-item label="商品数量" prop="number">
+        <el-input-number 
+          v-model="formData.number" 
+          :min="1" 
+          :step="1"
+          style="width: 100%"
+        />
+      </el-form-item>
+
+      <el-form-item label="开始时间" prop="createTime">
+        <el-date-picker
+          v-model="formData.createTime"
+          type="datetime"
+          placeholder="选择开始时间"
+          style="width: 100%"
+        />
+      </el-form-item>
+
+      <el-form-item label="结束时间" prop="endTime">
+        <el-date-picker
+          v-model="formData.endTime"
+          type="datetime"
+          placeholder="选择结束时间"
+          style="width: 100%"
+        />
+      </el-form-item>
+
+      <el-form-item label="商品图片" prop="image">
+        <el-upload
+          class="avatar-uploader"
+          :auto-upload="false"
+          :show-file-list="false"
+          :before-upload="beforeUpload"
+        >
+          <img 
+            v-if="formData.avatar" 
+            :src="formData.avatar" 
+            class="avatar" 
+            @click="handlePreview"
+          />
+          <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+        </el-upload>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitForm">确定</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <!-- 图片预览弹窗 -->
+  <el-dialog v-model="previewVisible" title="图片预览" width="500px" append-to-body>
+    <img :src="previewImage" style="width: 100%;" />
+  </el-dialog>
 </template>
 
 <style lang="less" scoped>
 .seckill-card {
   margin: 20px;
-  border-radius: 8px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
 
   .filter-section {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 16px;
+    padding: 16px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
 
     .filter-inputs {
       display: flex;
-      gap: 15px;
-      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      min-width: 0;
 
       .input {
         width: 200px;
+        :deep(.el-input__wrapper) {
+          box-shadow: 0 0 0 1px #dcdfe6 inset;
+          &:hover {
+            box-shadow: 0 0 0 1px #409eff inset;
+          }
+          &.is-focus {
+            box-shadow: 0 0 0 1px #409eff inset;
+          }
+        }
+        @media screen and (max-width: 1200px) {
+          width: 180px;
+        }
       }
     }
 
     .filter-buttons {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+  }
 
-      .btn {
-        min-width: 100px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-      }
+  :deep(.el-button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: all 0.3s;
+    
+    .el-icon {
+      margin-right: 4px;
+    }
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    &.el-button--primary {
+      background: linear-gradient(45deg, #409eff, #50a3ff);
+    }
+
+    &.el-button--success {
+      background: linear-gradient(45deg, #67c23a, #85ce61);
+    }
+
+    &.el-button--danger {
+      background: linear-gradient(45deg, #f56c6c, #ff7875);
     }
   }
 
@@ -390,5 +622,42 @@ const deleteBatch = (row?: any) => {
       }
     }
   }
+}
+
+.avatar-uploader {
+  :deep(.el-upload) {
+    border: 1px dashed #d9d9d9;
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: var(--el-transition-duration-fast);
+
+    &:hover {
+      border-color: var(--el-color-primary);
+    }
+  }
+}
+
+.avatar-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+  width: 178px;
+  height: 178px;
+  text-align: center;
+  line-height: 178px;
+}
+
+.avatar {
+  width: 178px;
+  height: 178px;
+  display: block;
+  object-fit: cover;
+}
+
+.seckill-form {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 20px;
 }
 </style>
