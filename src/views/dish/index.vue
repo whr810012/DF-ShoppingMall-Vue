@@ -77,57 +77,49 @@ const fileList = ref<any[]>([])
 const oldImages = ref<string[]>([]) // 用于存储修改时的原有图片
 
 const handleFileChange = (uploadFile: any) => {
+  console.log('uploadFile:', uploadFile)
+  
   if (fileList.value.length >= 3) {
     ElMessage.warning('最多只能上传3张图片')
-    return false
+    return
   }
-  // 获取原始的File对象
+
   const file = uploadFile.raw
   if (!file) {
     ElMessage.error('文件上传失败')
-    return false
+    return
   }
   
   // 验证文件类型
   const isImage = file.type.startsWith('image/')
   if (!isImage) {
     ElMessage.error('只能上传图片文件')
-    return false
+    return
   }
   
   // 验证文件大小（限制为2MB）
   const isLt2M = file.size / 1024 / 1024 < 2
   if (!isLt2M) {
     ElMessage.error('图片大小不能超过2MB')
-    return false
+    return
   }
-  
+
+  // 创建预览URL
+  const url = URL.createObjectURL(file)
   fileList.value.push({
-    url: URL.createObjectURL(file),
-    raw: file,
-    isNew: true // 标记为新上传的图片
+    name: file.name,
+    url: url
   })
   formData.avatar.push(file)
-  return false
 }
 
 const handleRemove = (file: any) => {
   const index = fileList.value.findIndex(item => item.url === file.url)
   if (index !== -1) {
-    // 如果是新上传的图片,从formData.avatar中移除
-    if (fileList.value[index].isNew) {
-      const avatarIndex = formData.avatar.findIndex(f => f === fileList.value[index].raw)
-      if (avatarIndex !== -1) {
-        formData.avatar.splice(avatarIndex, 1)
-      }
-    } else {
-      // 如果是原有图片,从oldImages中移除
-      const oldIndex = oldImages.value.findIndex(url => url === file.url)
-      if (oldIndex !== -1) {
-        oldImages.value.splice(oldIndex, 1)
-      }
-    }
     fileList.value.splice(index, 1)
+    formData.avatar.splice(index, 1)
+    // 如果是预览URL，需要释放
+    URL.revokeObjectURL(file.url)
   }
 }
 
@@ -249,10 +241,16 @@ const resetForm = () => {
   formData.number = 0
   formData.sortId = null
   formData.status = 1
-  formData.avatar = []
   formData.discount = 1
+  // 清理预览URL
+  fileList.value.forEach(file => {
+    if (file.url.startsWith('blob:')) {
+      URL.revokeObjectURL(file.url)
+    }
+  })
   fileList.value = []
-  oldImages.value = [] // 重置原有图片数组
+  formData.avatar = []
+  oldImages.value = []
   isEdit.value = false
 }
 
@@ -685,19 +683,19 @@ const resetSearch = () => {
             :file-list="fileList"
             :on-change="handleFileChange"
             :on-remove="handleRemove"
+            :before-upload="() => false"
             accept="image/jpeg,image/png,image/gif"
             multiple
             list-type="picture-card"
           >
-            <template #trigger>
+            <template #default>
               <el-icon><Plus /></el-icon>
-            </template>
-            <template #tip>
-              <div class="el-upload__tip">
-                只能上传jpg/png/gif文件，且不超过2MB
-              </div>
+              <div class="el-upload__text">点击上传</div>
             </template>
           </el-upload>
+          <div class="el-upload__tip">
+            只能上传jpg/png/gif文件，且不超过2MB，最多3张
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -831,13 +829,26 @@ const resetSearch = () => {
     :deep(.el-upload--picture-card) {
       width: 120px;
       height: 120px;
-      line-height: 120px;
+      line-height: 130px;
     }
+    
     :deep(.el-upload-list--picture-card) {
       .el-upload-list__item {
         width: 120px;
         height: 120px;
       }
+      .el-upload-list__item-thumbnail {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+    }
+
+    .el-upload__text {
+      margin-top: 8px;
+      color: #606266;
+      font-size: 12px;
+      text-align: center;
     }
   }
 }

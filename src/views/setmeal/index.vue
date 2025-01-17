@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue'
-import { getSeckillListApi, deleteSeckillApi, updateSeckillApi } from '@/api/miaosha'
+import { getSeckillListApi, deleteSeckillApi, updateSeckillApi, addSeckillApi, type SeckillFormData } from '@/api/miaosha'
 import { ElMessage, ElMessageBox, ElTable } from 'element-plus'
 import { Delete, Edit, Plus, Search, Refresh, Picture, CircleClose, VideoPlay } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
@@ -182,14 +182,15 @@ const deleteBatch = (row?: any) => {
 
 // 表单数据
 const dialogVisible = ref(false)
-const formData = reactive({
+const formData = reactive<SeckillFormData>({
   name: '',
   price: 0,
   number: 0,
   createTime: '',
   endTime: '',
   avatar: '',
-  image: null as File | null,
+  image: null,
+  status: 1 // 默认为进行中状态，但不会传递给后端
 })
 
 // 表单规则
@@ -210,27 +211,39 @@ const rules = {
 
 const formRef = ref()
 
-// 图片上传前的处理
-const beforeUpload = (file: File) => {
+// 图片上传的处理
+const handleAvatarChange = (uploadFile: any) => {
+  console.log('图片上传的处理')
+  console.log(uploadFile)
+  
+  const file = uploadFile.raw
   const isImage = file.type.startsWith('image/')
   const isLt2M = file.size / 1024 / 1024 < 2
 
   if (!isImage) {
     ElMessage.error('只能上传图片文件！')
-    return false
+    return
   }
   if (!isLt2M) {
     ElMessage.error('图片大小不能超过 2MB！')
-    return false
+    return
   }
 
   formData.image = file
-  const reader = new FileReader()
-  reader.readAsDataURL(file)
-  reader.onload = (e) => {
-    formData.avatar = e.target?.result as string
+  // 使用 URL.createObjectURL 创建预览
+  formData.avatar = URL.createObjectURL(file)
+  
+  // 手动触发表单验证
+  if (formRef.value) {
+    formRef.value.validateField('image')
   }
-  return false // 阻止自动上传
+}
+
+// 格式化时间
+const formatDateTime = (date: string | Date) => {
+  if (!date) return ''
+  const d = new Date(date)
+  return d.toISOString().slice(0, 19)  // 返回格式：2025-01-14T16:00:00
 }
 
 // 提交表单
@@ -239,24 +252,32 @@ const submitForm = async () => {
   
   await formRef.value.validate(async (valid: boolean) => {
     if (valid) {
-      const form = new FormData()
-      form.append('name', formData.name)
-      form.append('price', formData.price.toString())
-      form.append('number', formData.number.toString())
-      form.append('createTime', formData.createTime)
-      form.append('endTime', formData.endTime)
-      if (formData.image) {
-        form.append('image', formData.image)
+      if (!formData.image) {
+        ElMessage.warning('请上传商品图片')
+        return
       }
 
       try {
-        // TODO: 调用添加秒杀商品API
-        dialogVisible.value = false
-        ElMessage.success('添加成功')
-        showPageList() // 刷新列表
-        resetForm()
-      } catch (error) {
-        ElMessage.error('添加失败')
+        const res = await addSeckillApi({
+          name: formData.name,
+          price: formData.price,
+          number: formData.number,
+          createTime: formatDateTime(formData.createTime),
+          endTime: formatDateTime(formData.endTime),
+          image: formData.image
+        })
+        
+        if (res.code === 1) {
+          ElMessage.success('添加成功')
+          dialogVisible.value = false
+          showPageList() // 刷新列表
+          resetForm()
+        } else {
+          ElMessage.error(res.msg || '添加失败')
+        }
+      } catch (error: any) {
+        console.error('添加失败:', error)
+        ElMessage.error(error.response?.data?.msg || '添加失败')
       }
     }
   })
@@ -267,20 +288,12 @@ const resetForm = () => {
   if (formRef.value) {
     formRef.value.resetFields()
   }
+  // 如果有预览URL，需要释放
+  if (formData.avatar && formData.avatar.startsWith('blob:')) {
+    URL.revokeObjectURL(formData.avatar)
+  }
   formData.avatar = ''
   formData.image = null
-}
-
-// 在 script setup 中添加预览相关的变量和方法
-const previewVisible = ref(false)
-const previewImage = ref('')
-
-// 处理图片预览
-const handlePreview = () => {
-  if (formData.avatar) {
-    previewVisible.value = true
-    previewImage.value = formData.avatar
-  }
 }
 </script>
 
@@ -321,8 +334,10 @@ const handlePreview = () => {
           <el-image 
             :src="scope.row.avatar" 
             :preview-src-list="[scope.row.avatar]"
+            preview-teleported
             fit="cover"
             class="product-image"
+            :initial-index="0"
           >
             <template #error>
               <div class="image-error">
@@ -440,13 +455,13 @@ const handlePreview = () => {
           class="avatar-uploader"
           :auto-upload="false"
           :show-file-list="false"
-          :before-upload="beforeUpload"
+          :on-change="handleAvatarChange"
+          accept="image/jpeg,image/png"
         >
           <img 
             v-if="formData.avatar" 
             :src="formData.avatar" 
-            class="avatar" 
-            @click="handlePreview"
+            class="avatar"
           />
           <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
         </el-upload>
@@ -458,11 +473,6 @@ const handlePreview = () => {
         <el-button type="primary" @click="submitForm">确定</el-button>
       </span>
     </template>
-  </el-dialog>
-
-  <!-- 图片预览弹窗 -->
-  <el-dialog v-model="previewVisible" title="图片预览" width="500px" append-to-body>
-    <img :src="previewImage" style="width: 100%;" />
   </el-dialog>
 </template>
 
@@ -648,10 +658,18 @@ const handlePreview = () => {
   line-height: 178px;
 }
 
-.avatar {
+.avatar-wrapper {
   width: 178px;
   height: 178px;
-  display: block;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.avatar {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
