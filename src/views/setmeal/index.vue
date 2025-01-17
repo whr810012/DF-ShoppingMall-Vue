@@ -258,23 +258,23 @@ const submitForm = async () => {
       }
 
       try {
-        const res = await addSeckillApi({
+        await addSeckillApi({
           name: formData.name,
           price: formData.price,
           number: formData.number,
           createTime: formatDateTime(formData.createTime),
           endTime: formatDateTime(formData.endTime),
           image: formData.image
+        }).then(res => {
+          if (res.data.code === 1) {
+            ElMessage.success('添加成功')
+            dialogVisible.value = false
+            showPageList() // 刷新列表
+            resetForm()
+          } else {
+            ElMessage.error(res.msg || '添加失败')
+          }
         })
-        
-        if (res.code === 1) {
-          ElMessage.success('添加成功')
-          dialogVisible.value = false
-          showPageList() // 刷新列表
-          resetForm()
-        } else {
-          ElMessage.error(res.msg || '添加失败')
-        }
       } catch (error: any) {
         console.error('添加失败:', error)
         ElMessage.error(error.response?.data?.msg || '添加失败')
