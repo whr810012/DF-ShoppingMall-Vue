@@ -1,375 +1,688 @@
 <script setup lang="ts">
-// 引入组件
-import TurnoverStatistics from './components/TurnoverStatistics.vue'
-import UserStatistics from './components/UserStatistics.vue'
-import OrderStatistics from './components/OrderStatistics.vue'
-import Top from './components/Top10.vue'
+import { onMounted, ref } from 'vue'
+import { getSortListApi } from '@/api/sort'
+import { getGoodsListApi } from '@/api/goods'
+import { getSeckillListApi } from '@/api/miaosha'
+import { queryAllQiShouApi } from '@/api/qishou'
+import { Goods, Timer, User } from '@element-plus/icons-vue'
 
-import { onMounted, ref, watch } from 'vue'
-import {
-  get1stAndToday,
-  past7Day,
-  past30Day,
-  pastWeek,
-  pastMonth,
-} from '@/utils/date'
-import {
-  getTurnoverStatisticsAPI,
-  getUserStatisticsAPI,
-  getOrderStatisticsAPI,
-  getTop10StatisticsAPI,
-  exportInforAPI,
-} from '@/api/statistics'
-import { ElMessage, ElMessageBox } from 'element-plus'
-
-
-interface TurnoverData {
-  dateList: string[];
-  turnoverList: number[];
-}
-interface UserData {
-  dateList: string[];
-  totalUserList: number[];
-  newUserList: number[];
-}
-interface OrderData {
-  orderCompletionRate: number;
-  validOrderCount: number;
-  totalOrderCount: number;
-  data: {
-    dateList: string[];
-    orderCountList: number[];
-    validOrderCountList: number[];
-  };
-}
-interface Top10Data {
-  nameList: string[];
-  numberList: number[];
+interface CategoryData {
+  total: number;
+  categories: Array<{
+    name: string;
+    count: number;
+  }>;
 }
 
-const overviewData = ref({})
-// const flag = ref(2)
-const tateData = ref<string[]>([])
-const turnoverData = ref<TurnoverData>({
-  dateList: [],
-  turnoverList: []
+interface GoodsData {
+  total: number;
+  goods: Array<{
+    name: string;
+    price: number;
+    number: number;
+    status: number;
+  }>;
+}
+
+interface SeckillData {
+  total: number;
+  seckills: Array<{
+    name: string;
+    price: number;
+    number: number;
+    status: number;
+  }>;
+}
+
+interface RiderData {
+  total: number;
+  riders: Array<{
+    name: string;
+    phone: string;
+    status: number;
+  }>;
+}
+
+const categoryData = ref<CategoryData>({
+  total: 0,
+  categories: []
 })
-const userData = ref<UserData>({
-  dateList: [],
-  totalUserList: [],
-  newUserList: []
+
+const goodsData = ref<GoodsData>({
+  total: 0,
+  goods: []
 })
-const orderData = ref<OrderData>({
-  orderCompletionRate: 0,
-  validOrderCount: 0,
-  totalOrderCount: 0,
-  data: {
-    dateList: [],
-    orderCountList: [],
-    validOrderCountList: []
-  }
+
+const seckillData = ref<SeckillData>({
+  total: 0,
+  seckills: []
 })
-const top10Data = ref<Top10Data>({
-  nameList: [],
-  numberList: []
+
+const riderData = ref<RiderData>({
+  total: 0,
+  riders: []
 })
 
 onMounted(() => {
-  getTitleNum(2)
+  getCategoryData()
+  getGoodsData()
+  getSeckillData()
+  getRiderData()
 })
 
-const init = (begin: string, end: string) => {
-  getTurnoverStatisticsData(begin, end)
-  getUserStatisticsData(begin, end)
-  getOrderStatisticsData(begin, end)
-  getTopData(begin, end)
-}
-
-// chart1 营业额统计
-const getTurnoverStatisticsData = async (begin: string, end: string) => {
-  const { data } = await getTurnoverStatisticsAPI({ begin, end })
-  turnoverData.value = {
-    dateList: data.data.dateList.split(','),
-    turnoverList: data.data.turnoverList.split(',')
-  }
-  console.log('获取到营业额统计数据：', turnoverData.value)
-}
-
-// chart2 用户统计
-const getUserStatisticsData = async (begin: string, end: string) => {
-  const { data: res } = await getUserStatisticsAPI({ begin, end })
-  userData.value = {
-    dateList: res.data.dateList.split(','),
-    totalUserList: res.data.totalUserList.split(','),
-    newUserList: res.data.newUserList.split(','),
-  }
-  console.log('获取到用户统计数据：', userData.value)
-}
-
-// chart3 订单统计
-const getOrderStatisticsData = async (begin: string, end: string) => {
-  const { data: res } = await getOrderStatisticsAPI({ begin, end })
-  orderData.value = {
-    data: {
-      dateList: res.data.dateList.split(','),
-      orderCountList: res.data.orderCountList.split(','),
-      validOrderCountList: res.data.validOrderCountList.split(','),
-    },
-    totalOrderCount: res.data.totalOrderCount,
-    validOrderCount: res.data.validOrderCount,
-    orderCompletionRate: res.data.orderCompletionRate
-  }
-  console.log('获取到订单统计数据：', orderData.value)
-}
-
-// chart4 销量排名TOP10
-const getTopData = async (begin: string, end: string) => {
-  const { data: res } = await getTop10StatisticsAPI({ begin, end })
-  top10Data.value = {
-    nameList: res.data.nameList.split(',').reverse(),
-    numberList: res.data.numberList.split(',').reverse(),
-  }
-  console.log('获取到销量top10统计数据：', top10Data.value)
-}
-
-// 获取当前选中的tab时间
-const getTitleNum = (data: number) => {
-  switch (data) {
-    case 1:
-      tateData.value = get1stAndToday()
-      break
-    case 2:
-      tateData.value = past7Day()
-      break
-    case 3:
-      tateData.value = past30Day()
-      break
-    case 4:
-      tateData.value = pastWeek()
-      break
-    case 5:
-      tateData.value = pastMonth()
-      break
-  }
-  // 根据新的时间段获取数据
-  init(tateData.value[0], tateData.value[1])
-}
-
-const nowIndex = ref(0);
-const tabsParam = ['昨日', '近7日', '近30日', '本周', '本月'];
-
-watch(nowIndex, (val) => {
-  // 在这里执行 flag 变化时的操作
-  console.log('Flag 变化为:', val);
-})
-
-const toggleTabs = (index: number) => {
-  nowIndex.value = index;
-  getTitleNum(index + 1);
-};
-
-
-const handleExport = async () => {
+// 获取分类统计数据
+const getCategoryData = async () => {
   try {
-    const confirm = await ElMessageBox.confirm(
-      '是否导出最近30天运营数据?',
-      '导出数据',
-      {
-        confirmButtonText: 'OK',
-        cancelButtonText: 'Cancel',
-        type: 'warning',
+    // 获取所有分类
+    const { data: categoryRes } = await getSortListApi()
+    // 获取所有商品
+    const { data: goodsRes } = await getGoodsListApi()
+    
+    if (categoryRes.code === 1 && goodsRes.code === 1) {
+      // 创建一个Map来存储每个分类的商品数量
+      const categoryCountMap = new Map()
+      
+      // 初始化每个分类的商品数量为0
+      categoryRes.data.forEach((category: any) => {
+        categoryCountMap.set(category.id, {
+          name: category.name,
+          count: 0
+        })
+      })
+      
+      // 统计每个分类下的商品数量
+      goodsRes.data.forEach((goods: any) => {
+        if (goods.sortId && categoryCountMap.has(goods.sortId)) {
+          const category = categoryCountMap.get(goods.sortId)
+          category.count++
+          categoryCountMap.set(goods.sortId, category)
+        }
+      })
+      
+      // 转换为数组格式
+      categoryData.value = {
+        total: categoryRes.data.length,
+        categories: Array.from(categoryCountMap.values())
       }
-    );
-    // 如果用户确认导出
-    if (confirm) {
-      const { data } = await exportInforAPI();
-      // 程序模拟点击a标签行为，实现下载excel功能
-      let url = window.URL.createObjectURL(data);
-      var a = document.createElement('a');
-      document.body.appendChild(a);
-      a.href = url;
-      a.download = '运营数据统计报表.xlsx';
-      a.click();
-      window.URL.revokeObjectURL(url);
-      ElMessage({
-        type: 'success',
-        message: '导出成功',
-      });
+      
+      console.log('获取到分类统计数据：', categoryData.value)
     }
   } catch (error) {
-    // 捕获 ElMessageBox.confirm 的取消操作
-    if (error === 'cancel') {
-      ElMessage({
-        type: 'info',
-        message: '取消导出',
-      });
-    } else {
-      console.error('导出失败:', error);
-      ElMessage({
-        type: 'error',
-        message: '导出失败',
-      });
-    }
+    console.error('获取分类统计数据失败：', error)
   }
-};
+}
+
+// 获取商品统计数据
+const getGoodsData = async () => {
+  try {
+    const { data: res } = await getGoodsListApi()
+    if (res.code === 1) {
+      goodsData.value = {
+        total: res.data.length,
+        goods: res.data.map((item: any) => ({
+          name: item.name,
+          price: item.price,
+          number: item.number || 0,
+          status: item.status
+        }))
+      }
+      console.log('获取到商品统计数据：', goodsData.value)
+    }
+  } catch (error) {
+    console.error('获取商品统计数据失败：', error)
+  }
+}
+
+// 获取秒杀商品统计数据
+const getSeckillData = async () => {
+  try {
+    const { data: res } = await getSeckillListApi()
+    if (res.code === 1) {
+      seckillData.value = {
+        total: res.data.length,
+        seckills: res.data.map((item: any) => ({
+          name: item.name,
+          price: item.price,
+          number: item.number,
+          status: item.status
+        }))
+      }
+      console.log('获取到秒杀商品统计数据：', seckillData.value)
+    }
+  } catch (error) {
+    console.error('获取秒杀商品统计数据失败：', error)
+  }
+}
+
+// 获取骑手统计数据
+const getRiderData = async () => {
+  try {
+    const { data: res } = await queryAllQiShouApi()
+    if (res.code === 1) {
+      riderData.value = {
+        total: res.data.length,
+        riders: res.data.map((item: any) => ({
+          name: item.name,
+          phone: item.phone,
+          status: item.status
+        }))
+      }
+      console.log('获取到骑手统计数据：', riderData.value)
+    }
+  } catch (error) {
+    console.error('获取骑手统计数据失败：', error)
+  }
+}
 </script>
 
 <template>
-  <div class="title-index">
-    <div class="tab-change">
-      <div class="tab-item" v-for="(item, index) in tabsParam" @click="toggleTabs(index)"
-        :class="{ active: index === nowIndex }" :key="index">
-        <div class="item">{{ item }}</div>
-      </div>
-      <div class="get-time">
-        <p> 已选时间：{{ tateData[0] }} 至 {{ tateData[tateData.length - 1] }} </p>
-      </div>
-    </div>
-    <el-button type="success" @click="handleExport">数据导出</el-button>
-  </div>
-  <div class="page">
+  <div class="statistics-container">
+    <el-row :gutter="20" class="overview-row">
+      <el-col :span="8">
+        <el-card class="overview-card" shadow="hover">
+          <div class="overview-item">
+            <div class="icon-wrapper bg-success">
+              <el-icon><Goods /></el-icon>
+            </div>
+            <div class="content">
+              <div class="label">在售商品</div>
+              <div class="value">{{ goodsData.goods.filter(item => item.status === 1).length }}</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card class="overview-card" shadow="hover">
+          <div class="overview-item">
+            <div class="icon-wrapper bg-warning">
+              <el-icon><Timer /></el-icon>
+            </div>
+            <div class="content">
+              <div class="label">秒杀商品</div>
+              <div class="value">{{ seckillData.seckills.filter(item => item.status === 1).length }}</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="8">
+        <el-card class="overview-card" shadow="hover">
+          <div class="overview-item">
+            <div class="icon-wrapper bg-primary">
+              <el-icon><User /></el-icon>
+            </div>
+            <div class="content">
+              <div class="label">空闲骑手</div>
+              <div class="value">{{ riderData.riders.filter(item => item.status === 1).length }}</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="20">
-      <div class="turnover">
-        <!-- 营业额统计 -->
-        <TurnoverStatistics :turnoverdata="turnoverData" />
-      </div>
-      <div class="user">
-        <!-- 用户统计 -->
-        <UserStatistics :userdata="userData" />
-      </div>
+      <el-col :span="12">
+        <div class="stats-card category-stats">
+          <el-card class="box-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <span class="title">分类统计</span>
+                <el-tag type="info" effect="plain" class="total-tag">
+                  总数：{{ categoryData.total }}
+                </el-tag>
+              </div>
+            </template>
+            <el-table 
+              :data="categoryData.categories" 
+              style="width: 100%"
+              :header-cell-style="{
+                background: '#f5f7fa',
+                color: '#606266',
+                fontWeight: 'bold'
+              }"
+              :cell-style="{
+                padding: '8px 0'
+              }"
+              height="400"
+              :max-height="400"
+            >
+              <el-table-column prop="name" label="分类名称" min-width="120" />
+              <el-table-column prop="count" label="商品数量" align="center" width="100" />
+            </el-table>
+          </el-card>
+        </div>
+      </el-col>
+      <el-col :span="12">
+        <div class="stats-card goods-stats">
+          <el-card class="box-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <span class="title">商品统计</span>
+                <el-tag type="info" effect="plain" class="total-tag">
+                  总数：{{ goodsData.total }}
+                </el-tag>
+              </div>
+            </template>
+            <el-table 
+              :data="goodsData.goods" 
+              style="width: 100%"
+              :header-cell-style="{
+                background: '#f5f7fa',
+                color: '#606266',
+                fontWeight: 'bold'
+              }"
+              :cell-style="{
+                padding: '8px 0'
+              }"
+              height="400"
+              :max-height="400"
+            >
+              <el-table-column prop="name" label="商品名称" min-width="120" />
+              <el-table-column prop="price" label="价格" align="center" width="100">
+                <template #default="scope">
+                  <span class="price">{{ scope.row.price }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="number" label="库存" align="center" width="80" />
+              <el-table-column prop="status" label="状态" align="center" width="80">
+                <template #default="scope">
+                  <el-tag 
+                    :type="scope.row.status === 1 ? 'success' : 'info'"
+                    effect="light"
+                    size="small"
+                  >
+                    {{ scope.row.status === 1 ? '上架' : '下架' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+        </div>
+      </el-col>
     </el-row>
     <el-row :gutter="20">
-      <div class="order">
-        <!-- 订单统计 -->
-        <OrderStatistics :orderdata="orderData" :overviewData="overviewData" />
-      </div>
-      <div class="top10">
-        <!-- 销量排名TOP10 -->
-        <Top :top10data="top10Data" />
-      </div>
+      <el-col :span="12">
+        <div class="stats-card seckill-stats">
+          <el-card class="box-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <span class="title">秒杀商品统计</span>
+                <el-tag type="info" effect="plain" class="total-tag">
+                  总数：{{ seckillData.total }}
+                </el-tag>
+              </div>
+            </template>
+            <el-table 
+              :data="seckillData.seckills" 
+              style="width: 100%"
+              :header-cell-style="{
+                background: '#f5f7fa',
+                color: '#606266',
+                fontWeight: 'bold'
+              }"
+              :cell-style="{
+                padding: '8px 0'
+              }"
+              height="400"
+              :max-height="400"
+            >
+              <el-table-column prop="name" label="商品名称" min-width="120" />
+              <el-table-column prop="price" label="价格" align="center" width="100">
+                <template #default="scope">
+                  <span class="price">{{ scope.row.price }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column prop="number" label="库存" align="center" width="80" />
+              <el-table-column prop="status" label="状态" align="center" width="80">
+                <template #default="scope">
+                  <el-tag 
+                    :type="scope.row.status === 1 ? 'success' : 'info'"
+                    effect="light"
+                    size="small"
+                  >
+                    {{ scope.row.status === 1 ? '进行中' : '已结束' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+        </div>
+      </el-col>
+      <el-col :span="12">
+        <div class="stats-card rider-stats">
+          <el-card class="box-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <span class="title">骑手统计</span>
+                <el-tag type="info" effect="plain" class="total-tag">
+                  总数：{{ riderData.total }}
+                </el-tag>
+              </div>
+            </template>
+            <el-table 
+              :data="riderData.riders" 
+              style="width: 100%"
+              :header-cell-style="{
+                background: '#f5f7fa',
+                color: '#606266',
+                fontWeight: 'bold'
+              }"
+              :cell-style="{
+                padding: '8px 0'
+              }"
+              height="400"
+              :max-height="400"
+            >
+              <el-table-column prop="name" label="骑手姓名" min-width="100" />
+              <el-table-column prop="phone" label="联系电话" min-width="120" align="center" />
+              <el-table-column prop="status" label="状态" align="center" width="100">
+                <template #default="scope">
+                  <el-tag 
+                    :type="scope.row.status === 1 ? 'success' : 'warning'"
+                    effect="light"
+                    size="small"
+                  >
+                    {{ scope.row.status === 1 ? '空闲' : '进行中' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+        </div>
+      </el-col>
     </el-row>
   </div>
 </template>
 
 <style lang="less" scoped>
-.page {
-  margin: 20px;
-  padding: 0;
-  background-color: #e9f5ff;
-}
+.statistics-container {
+  padding: 20px;
+  min-height: calc(100vh - 100px);
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e7ed 100%);
+  animation: fadeIn 0.5s ease-out;
 
-.title-index {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 20px 30px 0 20px;
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 
-  .tab-change {
-    display: flex;
-    border-radius: 4px;
+  .overview-row {
+    margin-bottom: 30px;
 
-    .tab-item {
-      width: 100px;
-      height: 40px;
-      text-align: center;
-      line-height: 40px;
-      color: #333;
-      border: 1px solid #e5e4e4;
-      background-color: white;
-      border-left: none;
-      cursor: pointer;
+    .overview-card {
+      border-radius: 15px;
+      overflow: hidden;
+      border: none;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-      .special-item {
-        .el-badge__content {
-          width: 20px;
-          padding: 0 5px;
+      &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+
+        .icon-wrapper {
+          transform: scale(1.1);
+        }
+
+        .value {
+          color: var(--el-color-primary);
+        }
+      }
+
+      .overview-item {
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        background: white;
+
+        .icon-wrapper {
+          width: 60px;
+          height: 60px;
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-right: 20px;
+          transition: all 0.3s ease;
+
+          .el-icon {
+            font-size: 28px;
+            color: #fff;
+          }
+        }
+
+        .content {
+          flex: 1;
+
+          .label {
+            font-size: 16px;
+            color: #606266;
+            margin-bottom: 8px;
+            font-weight: 500;
+          }
+
+          .value {
+            font-size: 28px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #303133, #606266);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transition: all 0.3s ease;
+          }
         }
       }
     }
 
-    .get-time {
-      width: 300px;
-      height: 40px;
-      line-height: 40px;
-      text-align: center;
-      align-items: center;
-      font-size: 14px;
-      color: #333;
+    .bg-success {
+      background: linear-gradient(135deg, #67c23a 0%, #85ce61 100%);
     }
 
-    .active {
-      background-color: #22ccff;
-      font-weight: bold;
+    .bg-warning {
+      background: linear-gradient(135deg, #e6a23c 0%, #f3d19e 100%);
     }
 
-    .tab-item:first-child {
-      border-left: 1px solid #e5e4e4;
+    .bg-primary {
+      background: linear-gradient(135deg, #409eff 0%, #a0cfff 100%);
     }
   }
 
+  .el-row {
+    & + .el-row {
+      margin-top: 30px;
+    }
+  }
+
+  .stats-card {
+    .box-card {
+      height: 100%;
+      border-radius: 15px;
+      border: none;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      
+      &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: linear-gradient(to right, #f5f7fa, #ffffff);
+        padding: 15px 20px;
+        
+        .title {
+          font-size: 18px;
+          font-weight: bold;
+          color: #303133;
+          position: relative;
+          padding-left: 12px;
+
+          &::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 16px;
+            background: var(--el-color-primary);
+            border-radius: 2px;
+          }
+        }
+
+        .total-tag {
+          border-radius: 20px;
+          padding: 6px 12px;
+          font-weight: normal;
+          background: #f5f7fa;
+          border: none;
+          box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+      }
+
+      :deep(.el-card__body) {
+        padding: 20px;
+      }
+
+      :deep(.el-table) {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+
+        th {
+          background: #f5f7fa !important;
+          font-weight: bold;
+          font-size: 14px;
+          color: #606266;
+          height: 50px;
+        }
+
+        td {
+          padding: 12px 0;
+          transition: all 0.3s;
+        }
+
+        tr:hover td {
+          background-color: #f5f7fa !important;
+        }
+
+        .el-tag {
+          border-radius: 12px;
+          padding: 2px 10px;
+          font-weight: 500;
+          transition: all 0.3s;
+
+          &:hover {
+            transform: scale(1.05);
+          }
+        }
+
+        // 自定义滚动条样式
+        .el-scrollbar__wrap {
+          overflow-x: hidden;
+        }
+
+        .el-scrollbar__bar.is-vertical {
+          width: 6px;
+        }
+
+        .el-scrollbar__thumb {
+          background-color: #909399;
+          opacity: 0.3;
+          border-radius: 3px;
+
+          &:hover {
+            opacity: 0.5;
+          }
+        }
+      }
+
+      .price {
+        color: #f56c6c;
+        font-weight: bold;
+        font-size: 15px;
+        
+        &::before {
+          content: '¥';
+          font-size: 12px;
+          margin-right: 2px;
+        }
+      }
+    }
+  }
 }
 
+// 响应式布局
+@media screen and (max-width: 1200px) {
+  .statistics-container {
+    .el-col {
+      width: 100% !important;
+      margin-bottom: 20px;
 
-.el-select {
-  margin: 20px;
-  width: 100px;
-  float: right;
-  right: 40px;
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    .overview-card {
+      margin-bottom: 15px;
+    }
+  }
 }
 
-.turnover {
-  display: inline-block;
-  width: 48%;
-  height: 440px;
-  margin: 10px;
-  padding: 20px;
-  background-color: #fff;
-  border-radius: 10px;
-}
+// 添加暗色主题支持
+:root[class~="dark"] {
+  .statistics-container {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2c2c2c 100%);
 
-.user {
-  display: inline-block;
-  width: 48%;
-  height: 440px;
-  margin: 10px;
-  padding: 20px;
-  background-color: #fff;
-  border-radius: 10px;
-  vertical-align: top;
-}
+    .overview-card,
+    .box-card {
+      background-color: #2c2c2c;
+      
+      .card-header {
+        background: linear-gradient(to right, #2c2c2c, #363636);
+        
+        .title {
+          color: #e5e5e5;
+        }
+      }
 
-.order {
-  display: inline-block;
-  width: 48%;
-  height: 450px;
-  margin: 10px;
-  padding: 20px;
-  background-color: #fff;
-  border-radius: 10px;
-}
+      :deep(.el-table) {
+        background-color: #2c2c2c;
+        
+        th {
+          background-color: #363636 !important;
+          color: #e5e5e5;
+        }
 
-.top10 {
-  display: inline-block;
-  width: 48%;
-  height: 450px;
-  margin: 10px;
-  padding: 20px;
-  background-color: #fff;
-  border-radius: 10px;
-  vertical-align: top;
-}
-</style>
+        td {
+          background-color: #2c2c2c;
+          color: #e5e5e5;
+        }
 
-<!-- 全局样式 -->
-<style>
-.my-card {
-  margin: 20px;
-  padding: 20px;
-  border-radius: 10px;
-  /* justify-content: center; */
-}
+        tr:hover td {
+          background-color: #363636 !important;
+        }
 
-.pagination {
-  justify-content: center;
+        // 暗色主题下的滚动条样式
+        .el-scrollbar__thumb {
+          background-color: #909399;
+          opacity: 0.5;
+
+          &:hover {
+            opacity: 0.7;
+          }
+        }
+      }
+    }
+  }
 }
 </style>
