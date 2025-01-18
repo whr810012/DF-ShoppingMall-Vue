@@ -119,12 +119,21 @@ const handleFileChange = (uploadFile: any) => {
 }
 
 const handleRemove = (file: any) => {
+  console.log('handleRemove:', file);
+  console.log('fileList:', fileList.value);
+  console.log('formData.avatar:', formData.avatar);
+  
+  
+  
   const index = fileList.value.findIndex(item => item.url === file.url)
+  const index2 = formData.avatar.findIndex(item => item.name === file.name)
   if (index !== -1) {
     fileList.value.splice(index, 1)
-    formData.avatar.splice(index, 1)
     // 如果是预览URL，需要释放
     URL.revokeObjectURL(file.url)
+  }
+  if (index2 !== -1) {
+    formData.avatar.splice(index2, 1)
   }
 }
 
@@ -220,13 +229,15 @@ const submitForm = async () => {
       // 修改时：添加原有图片的URL数组
       // form.append('avatar', JSON.stringify(oldImages.value))
       // 判断删除了那些照片
-      console.log(fileList)
+      console.log('image',formData.avatar)
       const deletedImages = oldImages.value.filter(oldImage => {
         return !fileList.value.some(newImage => newImage.url === oldImage.url)
       }).map(item => item.id).join(',')
       if (deletedImages.length > 0) {
         form.append('ids', deletedImages)
       }
+      // 新增照片
+      const addImages = fileList.value.filter(file => file.isNew)
       // 添加删除图片的请求参数
       // 添加新上传的图片文件
       // 添加新上传的图片文件
