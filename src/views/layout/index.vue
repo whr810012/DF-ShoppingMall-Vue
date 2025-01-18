@@ -317,11 +317,11 @@ onBeforeUnmount(() => {
     <el-container>
       <el-header style="background: #67c23a;">
         <img src="../../assets/image/hanye_logo.png" class="logo" />
-        <el-icon class="icon1" v-if="isCollapse">
-          <Expand @click.stop="isCollapse = !isCollapse" />
+        <el-icon class="icon1" v-if="isCollapse" @click.stop="isCollapse = !isCollapse">
+          <Expand />
         </el-icon>
-        <el-icon class="icon1" v-else>
-          <Fold @click.stop="isCollapse = !isCollapse" />
+        <el-icon class="icon1" v-else @click.stop="isCollapse = !isCollapse">
+          <Fold />
         </el-icon>
         <div class="rightAudio">
           <audio ref="audio1" hidden>
@@ -350,7 +350,6 @@ onBeforeUnmount(() => {
       <el-container class="box1">
         <!-- 左侧导航菜单区域 -->
         <el-menu 
-          :width="isCollapse ? '80px' : '260px'" 
           :default-active="getActiveAside()" 
           :collapse="isCollapse"
           text-color="#303133"
@@ -457,6 +456,15 @@ onBeforeUnmount(() => {
     background-color: #fff !important;
     border-right: none;
     width: 260px;
+    transition: width 0.3s;
+    
+    &:not(.el-menu--collapse) {
+      width: 260px;
+    }
+    
+    &.el-menu--collapse {
+      width: 80px;
+    }
   }
 }
 
