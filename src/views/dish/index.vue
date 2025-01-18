@@ -223,9 +223,9 @@ const submitForm = async () => {
       console.log(fileList)
       const deletedImages = oldImages.value.filter(oldImage => {
         return !fileList.value.some(newImage => newImage.url === oldImage.url)
-      }).map(item => item.id)
+      }).map(item => item.id).join(',')
       if (deletedImages.length > 0) {
-        form.append('ids', JSON.stringify(deletedImages))
+        form.append('ids', deletedImages)
       }
       // 添加删除图片的请求参数
       // 添加新上传的图片文件
