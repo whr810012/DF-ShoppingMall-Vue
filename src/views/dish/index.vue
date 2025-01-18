@@ -8,10 +8,15 @@ import { useRouter } from 'vue-router'
 import { Search, Delete, Plus, Edit, Picture, SwitchButton, Refresh } from '@element-plus/icons-vue'
 
 // ------ .d.ts 属性类型接口 ------
+interface AvatarItem {
+  id: number
+  avatar: string
+}
+
 interface dish {
   id: number
   name: string
-  avatar: string[]
+  avatar: AvatarItem[]
   present: string
   price: number
   discount: number
@@ -143,12 +148,23 @@ const to_add_update = async (row?: any) => {
       formData.discount = res.data.discount
       
       // 处理图片
-      if (res.data.avatar && res.data.avatar.length > 0) {
-        oldImages.value = [...res.data.avatar] // 保存原有图片URL
+      if (res.data.ditysrc && res.data.ditysrc.length > 0) {
+        oldImages.value = [...res.data.ditysrc.map(item => {
+          return {
+            url: item.url,
+            id: item.eid
+          }}
+        )] // 保存原有图片URL
+        // oldImages.value = [...res.data.ditysrc.map(item => {
+        //   return {
+        //     url: item.url,
+        //     id: item.eid
+        //   }}
+        // )] // 保存原有图片URL
         // 将图片URL转换为展示用的fileList
-        fileList.value = res.data.avatar.map((url: string) => ({
-          url,
-          name: url.split('/').pop() || '',
+        fileList.value = res.data.ditysrc.map(item => ({
+          url: item.url,
+          name: item.url.split('/').pop() || '',
           isNew: false // 标记为原有图片
         }))
       }
@@ -202,7 +218,17 @@ const submitForm = async () => {
     // 处理图片
     if (isEdit.value) {
       // 修改时：添加原有图片的URL数组
-        form.append('avatar', JSON.stringify(oldImages.value))
+      // form.append('avatar', JSON.stringify(oldImages.value))
+      // 判断删除了那些照片
+      console.log(fileList)
+      const deletedImages = oldImages.value.filter(oldImage => {
+        return !formData.avatar.some(newImage => newImage.id === oldImage.id)
+      }).map(item => item.id)
+      if (deletedImages.length > 0) {
+        form.append('ids', JSON.stringify(deletedImages))
+      }
+      // 添加删除图片的请求参数
+      // 添加新上传的图片文件
       // 添加新上传的图片文件
       formData.avatar.forEach((file, index) => {
         form.append('image', file, `image${index + 1}.${file.name.split('.').pop()}`)
@@ -469,6 +495,11 @@ const resetSearch = () => {
   pageData.page = 1
   init()  // 这里也改为调用init
 }
+
+// 添加计算属性来处理图片预览列表
+const getPreviewImages = (avatar: AvatarItem[]) => {
+  return avatar.map(item => item.avatar)
+}
 </script>
 
 <template>
@@ -539,12 +570,12 @@ const resetSearch = () => {
     >
       <el-table-column type="selection" width="55" />
       <el-table-column prop="name" label="商品名" align="center" min-width="120" />
-      <el-table-column prop="avatar" label="图片" align="center" width="100">
+      <el-table-column prop="dityUrl" label="图片" align="center" width="100">
         <template #default="scope">
           <el-image 
-            v-if="scope.row.avatar && scope.row.avatar.length > 0" 
-            :src="scope.row.avatar[0]" 
-            :preview-src-list="scope.row.avatar"
+            v-if="scope.row.dityUrl && scope.row.dityUrl.length > 0" 
+            :src="scope.row.dityUrl[0].avatar" 
+            :preview-src-list="getPreviewImages(scope.row.dityUrl)"
             fit="cover"
             class="table-image"
           >

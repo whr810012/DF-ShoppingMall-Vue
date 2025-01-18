@@ -1,12 +1,14 @@
 import request from '@/utils/request'
 
 export interface SeckillFormData {
+  id?: number
   name: string
   price: number
   number: number
   createTime: string
   endTime: string
   image: File | null
+  avatar: string
   status: number
 }
 
@@ -17,18 +19,7 @@ export interface SeckillResponse {
 }
 
 // 添加秒杀商品
-export const addSeckillApi = (params: SeckillFormData): Promise<SeckillResponse> => {
-  const formData = new FormData()
-  formData.append('name', params.name)
-  formData.append('price', params.price.toString())
-  formData.append('number', params.number.toString())
-  formData.append('createTime', params.createTime)
-  formData.append('endTime', params.endTime)
-  formData.append('status', params.status)
-  if (params.image) {
-    formData.append('image', params.image)
-  }
-
+export const addSeckillApi = (formData: FormData): Promise<SeckillResponse> => {
   return request({
     url: 'admin/seckill/add',
     method: 'post',
@@ -39,8 +30,20 @@ export const addSeckillApi = (params: SeckillFormData): Promise<SeckillResponse>
   })
 }
 
+// 修改秒杀商品
+export const updateSeckillApi = (formData: FormData): Promise<SeckillResponse> => {
+  return request({
+    url: 'admin/seckill/amend',
+    method: 'post',
+    data: formData,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  })
+}
+
 // 修改秒杀商品状态
-export const updateSeckillApi = (params: { id: number, status: number }): Promise<SeckillResponse> => {
+export const updateSeckillStatusApi = (params: { id: number, status: number }): Promise<SeckillResponse> => {
   return request({
     url: 'admin/seckill/amend',
     method: 'post',

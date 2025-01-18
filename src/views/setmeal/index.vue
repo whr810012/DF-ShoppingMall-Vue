@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue'
-import { getSeckillListApi, deleteSeckillApi, updateSeckillApi, addSeckillApi, type SeckillFormData } from '@/api/miaosha'
+import { getSeckillListApi, deleteSeckillApi, updateSeckillApi, addSeckillApi, getSeckillDetailApi, updateSeckillStatusApi, type SeckillFormData } from '@/api/miaosha'
 import { ElMessage, ElMessageBox, ElTable } from 'element-plus'
 import { Delete, Edit, Plus, Search, Refresh, Picture, CircleClose, VideoPlay } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
@@ -107,31 +107,91 @@ const handleSelectionChange = (val: Seckill[]) => {
   multiSelection.value = val
 }
 
-// 新增和修改秒杀商品都是同一个页面，不过要根据路径传参的方式来区分
-const router = useRouter()
-const to_add_update = (row?: any) => {
-  if (row && row.id) {
-    router.push({
-      path: '/seckill/add',
-      query: { id: row.id }
-    })
-  } else {
-    dialogVisible.value = true
+// 表单数据
+const addDialogVisible = ref(false)
+const editDialogVisible = ref(false)
+const formData = reactive<SeckillFormData>({
+  id: undefined,
+  name: '',
+  price: 0,
+  number: 0,
+  createTime: '',
+  endTime: '',
+  avatar: '',
+  image: null,
+  status: 1
+})
+
+// 新增和修改秒杀商品的处理函数
+const to_add = () => {
+  addDialogVisible.value = true
+  resetForm()
+}
+
+const to_update = async (row: any) => {
+  editDialogVisible.value = true
+  try {
+    // 修改模式：获取商品详情并填充表单
+    const { data: res } = await getSeckillDetailApi(row.id)
+    console.log('获取到的商品详情：', res.data)
+    if (res.data && res.code === 1) {
+      // 处理日期时间格式
+      const createTime = res.data.createTime ? res.data.createTime.replace(' ', 'T') : ''
+      const endTime = res.data.endTime ? res.data.endTime.replace(' ', 'T') : ''
+      
+      // 重置表单数据
+      resetForm()
+      
+      // 填充表单数据
+      Object.assign(formData, {
+        id: res.data.id,
+        name: res.data.name,
+        price: Number(res.data.price),
+        number: Number(res.data.number),
+        createTime,
+        endTime,
+        avatar: res.data.avatar,
+        status: Number(res.data.status),
+        image: null // 修改时如果不上传新图片，使用原图片
+      })
+    } else {
+      ElMessage.error('获取商品详情失败')
+    }
+  } catch (error) {
+    console.error('获取商品详情失败:', error)
+    ElMessage.error('获取商品详情失败')
   }
 }
 
 // 修改秒杀商品状态
 const change_btn = async (row: any) => {
-  await updateSeckillApi({
-    id: row.id,
-    status: row.status === 1 ? 0 : 1
-  })
-  // 修改后刷新页面，更新数据
-  showPageList()
-  ElMessage({
-    type: 'success',
-    message: '修改成功',
-  })
+  try {
+    const newStatus = row.status === 1 ? 0 : 1
+    const params: any = {
+      id: row.id,
+      status: newStatus
+    }
+    
+    // 如果是从结束变为进行中，自动设置结束时间为7天后
+    if (newStatus === 1) {
+      const sevenDaysLater = new Date()
+      sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
+      // 格式化日期为 'YYYY-MM-DD HH:mm:ss'
+      const formattedDate = sevenDaysLater.toISOString().slice(0, 19).replace('T', ' ')
+      params.endTime = formattedDate
+    }
+
+    await updateSeckillApi(params)
+    // 修改后刷新页面，更新数据
+    showPageList()
+    ElMessage({
+      type: 'success',
+      message: newStatus === 1 ? '已开启秒杀活动，结束时间设为7天后' : '已结束秒杀活动',
+    })
+  } catch (error) {
+    console.error('修改状态失败:', error)
+    ElMessage.error('修改状态失败')
+  }
 }
 
 // 删除秒杀商品
@@ -179,19 +239,6 @@ const deleteBatch = (row?: any) => {
       })
     })
 }
-
-// 表单数据
-const dialogVisible = ref(false)
-const formData = reactive<SeckillFormData>({
-  name: '',
-  price: 0,
-  number: 0,
-  createTime: '',
-  endTime: '',
-  avatar: '',
-  image: null,
-  status: 1 // 默认为进行中状态，但不会传递给后端
-})
 
 // 表单规则
 const rules = {
@@ -252,34 +299,50 @@ const submitForm = async () => {
   
   await formRef.value.validate(async (valid: boolean) => {
     if (valid) {
-      if (!formData.image) {
+      if (!formData.image && !formData.id) {
         ElMessage.warning('请上传商品图片')
         return
       }
 
       try {
-        await addSeckillApi({
-          name: formData.name,
-          price: formData.price,
-          number: formData.number,
-          createTime: formatDateTime(formData.createTime),
-          endTime: formatDateTime(formData.endTime),
-          image: formData.image,
-          // status根据开始时间和结束时间判断
-          status: new Date(formData.createTime) <= new Date() && new Date() <= new Date(formData.endTime) ? 1 : 0
-        }).then(res => {
-          if (res.data.code === 1) {
-            ElMessage.success('添加成功')
-            dialogVisible.value = false
-            showPageList() // 刷新列表
-            resetForm()
+        const formDataToSend = new FormData()
+        if (formData.id) formDataToSend.append('id', formData.id.toString())
+        formDataToSend.append('name', formData.name)
+        formDataToSend.append('price', formData.price.toString())
+        formDataToSend.append('number', formData.number.toString())
+        formDataToSend.append('createTime', formatDateTime(formData.createTime))
+        formDataToSend.append('endTime', formatDateTime(formData.endTime))
+        if (formData.image) {
+          formDataToSend.append('image', formData.image)
+        }
+        
+        // 只在新增时根据时间判断状态，修改时保持原状态
+        if (!formData.id) {
+          const status = new Date(formData.createTime) <= new Date() && new Date() <= new Date(formData.endTime) ? 1 : 0
+          formDataToSend.append('status', status.toString())
+        } else {
+          formDataToSend.append('status', formData.status.toString())
+        }
+
+        const api = formData.id ? updateSeckillApi : addSeckillApi
+        const res = await api(formDataToSend)
+        
+        if (res.data.code === 1) {
+          ElMessage.success(formData.id ? '修改成功' : '添加成功')
+          // 根据当前打开的弹窗类型来关闭
+          if (formData.id) {
+            editDialogVisible.value = false
           } else {
-            ElMessage.error(res.msg || '添加失败')
+            addDialogVisible.value = false
           }
-        })
+          showPageList() // 刷新列表
+          resetForm()
+        } else {
+          ElMessage.error(res.data.msg || (formData.id ? '修改失败' : '添加失败'))
+        }
       } catch (error: any) {
-        console.error('添加失败:', error)
-        ElMessage.error(error.response?.data?.msg || '添加失败')
+        console.error(formData.id ? '修改失败:' : '添加失败:', error)
+        ElMessage.error(error.response?.data?.msg || (formData.id ? '修改失败' : '添加失败'))
       }
     }
   })
@@ -294,8 +357,10 @@ const resetForm = () => {
   if (formData.avatar && formData.avatar.startsWith('blob:')) {
     URL.revokeObjectURL(formData.avatar)
   }
+  formData.id = undefined
   formData.avatar = ''
   formData.image = null
+  formData.status = 1
 }
 </script>
 
@@ -322,7 +387,7 @@ const resetForm = () => {
         <el-button size="large" class="btn" type="danger" @click="deleteBatch()">
           <el-icon><Delete /></el-icon>批量删除
         </el-button>
-        <el-button size="large" class="btn" type="success" @click="to_add_update()">
+        <el-button size="large" class="btn" type="success" @click="to_add()">
           <el-icon><Plus /></el-icon>添加商品
         </el-button>
       </div>
@@ -367,7 +432,7 @@ const resetForm = () => {
       <el-table-column label="操作" width="200" align="center" fixed="right">
         <template #default="scope">
           <el-button-group>
-            <el-button @click="to_add_update(scope.row)" type="primary" :icon="Edit">修改</el-button>
+            <el-button @click="to_update(scope.row)" type="primary" :icon="Edit">修改</el-button>
             <el-button 
               @click="change_btn(scope.row)" 
               :type="scope.row.status === 1 ? 'danger' : 'success'"
@@ -399,7 +464,7 @@ const resetForm = () => {
 
   <!-- 新增秒杀商品弹窗 -->
   <el-dialog
-    v-model="dialogVisible"
+    v-model="addDialogVisible"
     title="新增秒杀商品"
     width="500px"
     @close="resetForm"
@@ -471,7 +536,88 @@ const resetForm = () => {
     </el-form>
     <template #footer>
       <span class="dialog-footer">
-        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button @click="addDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitForm">确定</el-button>
+      </span>
+    </template>
+  </el-dialog>
+
+  <!-- 修改秒杀商品弹窗 -->
+  <el-dialog
+    v-model="editDialogVisible"
+    title="修改秒杀商品"
+    width="500px"
+    @close="resetForm"
+  >
+    <el-form
+      ref="formRef"
+      :model="formData"
+      :rules="rules"
+      label-width="100px"
+      class="seckill-form"
+    >
+      <el-form-item label="商品名称" prop="name">
+        <el-input v-model="formData.name" placeholder="请输入商品名称" />
+      </el-form-item>
+
+      <el-form-item label="商品价格" prop="price">
+        <el-input-number 
+          v-model="formData.price" 
+          :precision="2" 
+          :step="0.1" 
+          :min="0"
+          style="width: 100%"
+        />
+      </el-form-item>
+
+      <el-form-item label="商品数量" prop="number">
+        <el-input-number 
+          v-model="formData.number" 
+          :min="1" 
+          :step="1"
+          style="width: 100%"
+        />
+      </el-form-item>
+
+      <el-form-item label="开始时间" prop="createTime">
+        <el-date-picker
+          v-model="formData.createTime"
+          type="datetime"
+          placeholder="选择开始时间"
+          style="width: 100%"
+        />
+      </el-form-item>
+
+      <el-form-item label="结束时间" prop="endTime">
+        <el-date-picker
+          v-model="formData.endTime"
+          type="datetime"
+          placeholder="选择结束时间"
+          style="width: 100%"
+        />
+      </el-form-item>
+
+      <el-form-item label="商品图片">
+        <el-upload
+          class="avatar-uploader"
+          :auto-upload="false"
+          :show-file-list="false"
+          :on-change="handleAvatarChange"
+          accept="image/jpeg,image/png"
+        >
+          <img 
+            v-if="formData.avatar" 
+            :src="formData.avatar" 
+            class="avatar"
+          />
+          <el-icon v-else class="avatar-uploader-icon"><Plus /></el-icon>
+        </el-upload>
+        <div class="image-tip">不上传则保持原图片不变</div>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="editDialogVisible = false">取消</el-button>
         <el-button type="primary" @click="submitForm">确定</el-button>
       </span>
     </template>
@@ -679,5 +825,11 @@ const resetForm = () => {
   max-height: 60vh;
   overflow-y: auto;
   padding-right: 20px;
+}
+
+.image-tip {
+  margin-top: 8px;
+  color: #909399;
+  font-size: 12px;
 }
 </style>

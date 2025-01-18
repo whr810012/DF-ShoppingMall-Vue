@@ -13,7 +13,7 @@ export const addGoodsApi = (formData: FormData) => {
 
 export const updateGoodsApi = (formData: FormData) => {
   return request({
-    url: 'admin/dity/amend',
+    url: `admin/dity/amend`,
     method: 'post',
     data: formData,
     headers: {
