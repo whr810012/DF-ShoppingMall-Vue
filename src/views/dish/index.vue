@@ -222,7 +222,7 @@ const submitForm = async () => {
       // 判断删除了那些照片
       console.log(fileList)
       const deletedImages = oldImages.value.filter(oldImage => {
-        return !formData.avatar.some(newImage => newImage.id === oldImage.id)
+        return !fileList.value.some(newImage => newImage.url === oldImage.url)
       }).map(item => item.id)
       if (deletedImages.length > 0) {
         form.append('ids', JSON.stringify(deletedImages))
