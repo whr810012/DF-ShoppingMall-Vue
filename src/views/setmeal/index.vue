@@ -264,7 +264,9 @@ const submitForm = async () => {
           number: formData.number,
           createTime: formatDateTime(formData.createTime),
           endTime: formatDateTime(formData.endTime),
-          image: formData.image
+          image: formData.image,
+          // status根据开始时间和结束时间判断
+          status: new Date(formData.createTime) <= new Date() && new Date() <= new Date(formData.endTime) ? 1 : 0
         }).then(res => {
           if (res.data.code === 1) {
             ElMessage.success('添加成功')

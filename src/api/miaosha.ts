@@ -7,7 +7,7 @@ export interface SeckillFormData {
   createTime: string
   endTime: string
   image: File | null
-  status?: number
+  status: number
 }
 
 export interface SeckillResponse {
@@ -24,6 +24,7 @@ export const addSeckillApi = (params: SeckillFormData): Promise<SeckillResponse>
   formData.append('number', params.number.toString())
   formData.append('createTime', params.createTime)
   formData.append('endTime', params.endTime)
+  formData.append('status', params.status)
   if (params.image) {
     formData.append('image', params.image)
   }
