@@ -177,7 +177,7 @@ const change_btn = async (row: any) => {
       const sevenDaysLater = new Date()
       sevenDaysLater.setDate(sevenDaysLater.getDate() + 7)
       // 格式化日期为 'YYYY-MM-DD HH:mm:ss'
-      const formattedDate = sevenDaysLater.toISOString().slice(0, 19).replace('T', ' ')
+      const formattedDate = sevenDaysLater.toISOString().slice(0, 19)
       params.endTime = formattedDate
     }
 
