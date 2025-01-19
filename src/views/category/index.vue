@@ -90,6 +90,16 @@ const change_btn = async (row: any) => {
 
 // 删除分类
 const delete_btn = (row: any) => {
+  // 检查是否是前四个分类
+  const index = categoryList.value.findIndex(item => item.id === row.id)
+  if (index < 4) {
+    ElMessage({
+      type: 'warning',
+      message: '前四个分类不允许删除',
+    })
+    return
+  }
+
   console.log('要删除的行数据')
   console.log(row)
   ElMessageBox.confirm(
@@ -255,7 +265,12 @@ const handleAdd = async () => {
       <el-table-column label="操作" width="200" align="center">
         <template #default="scope">
           <el-button @click="update_btn(scope.row)" type="primary" size="small">修改</el-button>
-          <el-button @click="delete_btn(scope.row)" type="danger" size="small">删除</el-button>
+          <el-button 
+            v-if="scope.$index >= 4" 
+            @click="delete_btn(scope.row)" 
+            type="danger" 
+            size="small"
+          >删除</el-button>
         </template>
       </el-table-column>
       <template #empty>
