@@ -11,6 +11,9 @@ interface category {
   id: number
   name: string
   createTime: string
+  image: File | null
+  imageUrl: string
+  avatar: string
 }
 
 // ------ 数据 ------
@@ -39,14 +42,21 @@ const options = [
 // 添加一个用于存储完整数据的ref
 const allCategoryList = ref<category[]>([])
 
+// 文件上传ref
+const fileInput = ref<HTMLInputElement | null>(null)
+const editFileInput = ref<HTMLInputElement | null>(null)
+
 // ------ 方法 ------
 
 // 页面初始化，就根据token去获取用户信息，才能实现如果没有token/token过期，刚开始就能够跳转到登录页
 const init = async () => {
   const { data: res } = await getSortListApi()
   console.log('分类列表', res)
-  // 保存完整数据
-  allCategoryList.value = res.data
+  // 保存完整数据，并设置imageUrl
+  allCategoryList.value = res.data.map((item: any) => ({
+    ...item,
+    imageUrl: item.avatar || ''  // 使用avatar作为图片URL
+  }))
   // 设置总数
   pageData.total = res.data.length
   // 处理分页数据
@@ -71,7 +81,10 @@ const handleSizeChange = (val: number) => {
 // 修改分类(路径传参，到update页面后，根据id查询分类信息，回显到表单中)
 const router = useRouter()
 const update_btn = (row: category) => {
-  editingCategory.value = { ...row }  // 复制一份数据
+  editingCategory.value = { 
+    ...row,
+    imageUrl: row.avatar || ''  // 使用avatar作为图片URL
+  }
   dialogVisible.value = true
 }
 
@@ -156,16 +169,51 @@ const dialogVisible = ref(false)
 const editingCategory = ref<category>({
   id: 0,
   name: '',
-  createTime: ''
+  createTime: '',
+  image: null as File | null,
+  imageUrl: '',
+  avatar: ''
 })
 
-// 添加保存修改的函数
+// 处理图片上传
+const handleImageChange = (e: Event, type: 'add' | 'edit') => {
+  const target = e.target as HTMLInputElement
+  if (target.files && target.files[0]) {
+    const file = target.files[0]
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      if (type === 'add') {
+        addForm.image = file
+        addForm.imageUrl = e.target?.result as string
+      } else {
+        editingCategory.value.image = file
+        editingCategory.value.imageUrl = e.target?.result as string
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+}
+
+// 处理文件上传点击
+const handleUploadClick = (type: 'add' | 'edit') => {
+  if (type === 'add' && fileInput.value) {
+    fileInput.value.click()
+  } else if (type === 'edit' && editFileInput.value) {
+    editFileInput.value.click()
+  }
+}
+
+// 修改保存修改的函数
 const handleSave = async () => {
   try {
-    await amendSortApi({
-      id: editingCategory.value.id,
-      name: editingCategory.value.name
-    }).then(res => {
+    const formData = new FormData()
+    formData.append('id', editingCategory.value.id.toString())
+    formData.append('name', editingCategory.value.name)
+    if (editingCategory.value.image) {
+      formData.append('image', editingCategory.value.image)
+    }
+
+    await amendSortApi(formData).then(res => {
       if (res.data.code !== 0) {
         ElMessage({
           type: 'success',
@@ -187,7 +235,9 @@ const handleSave = async () => {
 const addDialogVisible = ref(false)
 // 新增分类的表单数据
 const addForm = reactive({
-  name: ''  // 只保留name字段
+  name: '',  // 分类名称
+  image: null as File | null,  // 分类图片
+  imageUrl: ''  // 图片预览URL
 })
 
 // 修改新增分类的处理函数
@@ -201,12 +251,14 @@ const handleAdd = async () => {
       return
     }
     
-    const { data: res } = await addSortApi({ 
-      name: addForm.name.trim(),
-      status: 1  // 默认启用状态
-    })
+    const formData = new FormData()
+    formData.append('name', addForm.name.trim())
+    if (addForm.image) {
+      formData.append('image', addForm.image)
+    }
+    
+    const { data: res } = await addSortApi(formData)
 
-    // 添加结果判断
     if (res.code === 0) {
       return
     }
@@ -218,11 +270,13 @@ const handleAdd = async () => {
     addDialogVisible.value = false
     // 重置表单
     addForm.name = ''
+    addForm.image = null
+    addForm.imageUrl = ''
     init() // 刷新数据
   } catch (error: any) {
     ElMessage({
       type: 'error',
-      message: error.response?.data?.msg || '添加失败'  // 尝试获取后端返回的错误信息
+      message: error.response?.data?.msg || '添加失败'
     })
   }
 }
@@ -261,6 +315,22 @@ const handleAdd = async () => {
     <el-table :data="categoryList" stripe>
       <el-table-column prop="id" label="序号" width="80" align="center" />
       <el-table-column prop="name" label="分类名称" align="center" />
+      <el-table-column label="分类图片" align="center">
+        <template #default="scope">
+          <el-image 
+            style="width: 50px; height: 50px; border-radius: 4px;"
+            :src="scope.row.avatar"
+            fit="cover"
+            :preview-src-list="[scope.row.avatar]"
+          >
+            <template #error>
+              <div class="image-slot">
+                <el-icon><Plus /></el-icon>
+              </div>
+            </template>
+          </el-image>
+        </template>
+      </el-table-column>
       <el-table-column prop="createTime" label="创建时间" width="200" align="center" />
       <el-table-column label="操作" width="200" align="center">
         <template #default="scope">
@@ -295,7 +365,7 @@ const handleAdd = async () => {
       <template #total>
         总 <b>{{ pageData.total }}</b> 条
       </template>
-      <template #sizes="{ size }">
+      <template #sizes>
         <span style="margin-right: 4px">每页</span>{{ pageData.pageSize }}条
       </template>
     </el-pagination>
@@ -312,6 +382,34 @@ const handleAdd = async () => {
             v-model="editingCategory.name"
             placeholder="请输入分类名称"
           />
+        </el-form-item>
+        <el-form-item label="分类图片">
+          <div class="image-upload">
+            <input
+              type="file"
+              accept="image/*"
+              @change="(e) => handleImageChange(e, 'edit')"
+              ref="editFileInput"
+              style="display: none"
+            />
+            <div 
+              class="upload-box" 
+              @click="() => handleUploadClick('edit')"
+              v-if="!editingCategory.imageUrl"
+            >
+              <el-icon><Plus /></el-icon>
+              <span>点击上传图片</span>
+            </div>
+            <div class="preview" v-else>
+              <img :src="editingCategory.imageUrl" alt="预览图片">
+              <div class="mask">
+                <el-button 
+                  type="primary" 
+                  @click="() => handleUploadClick('edit')"
+                >重新上传</el-button>
+              </div>
+            </div>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -336,6 +434,34 @@ const handleAdd = async () => {
             v-model="addForm.name"
             placeholder="请输入分类名称"
           />
+        </el-form-item>
+        <el-form-item label="分类图片">
+          <div class="image-upload">
+            <input
+              type="file"
+              accept="image/*"
+              @change="(e) => handleImageChange(e, 'add')"
+              ref="fileInput"
+              style="display: none"
+            />
+            <div 
+              class="upload-box" 
+              @click="() => handleUploadClick('add')"
+              v-if="!addForm.imageUrl"
+            >
+              <el-icon><Plus /></el-icon>
+              <span>点击上传图片</span>
+            </div>
+            <div class="preview" v-else>
+              <img :src="addForm.imageUrl" alt="预览图片">
+              <div class="mask">
+                <el-button 
+                  type="primary" 
+                  @click="() => handleUploadClick('add')"
+                >重新上传</el-button>
+              </div>
+            </div>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -436,8 +562,7 @@ const handleAdd = async () => {
 
 // 移除不需要的样式
 .horizontal,
-.add_btn,
-img {
+.add_btn {
   display: none;
 }
 
@@ -464,5 +589,73 @@ img {
     padding: 20px;
     border-top: 1px solid #dcdfe6;
   }
+}
+
+.image-upload {
+  .upload-box {
+    width: 200px;
+    height: 200px;
+    border: 1px dashed #d9d9d9;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #8c939d;
+    
+    &:hover {
+      border-color: #409eff;
+      color: #409eff;
+    }
+    
+    .el-icon {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+  }
+  
+  .preview {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    border-radius: 6px;
+    overflow: hidden;
+    
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    
+    .mask {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      transition: opacity 0.3s;
+      
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+.image-slot {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  background: #f5f7fa;
+  color: #909399;
 }
 </style>

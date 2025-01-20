@@ -4,7 +4,9 @@ import { getSortListApi } from '@/api/sort'
 import { getGoodsListApi } from '@/api/goods'
 import { getSeckillListApi } from '@/api/miaosha'
 import { queryAllQiShouApi } from '@/api/qishou'
+import { getUserListApi } from '@/api/user'
 import { Goods, Timer, User } from '@element-plus/icons-vue'
+import * as echarts from 'echarts'
 
 interface CategoryData {
   total: number;
@@ -43,6 +45,19 @@ interface RiderData {
   }>;
 }
 
+interface UserData {
+  total: number;
+  users: Array<{
+    name: string;
+    createTime: string;
+  }>;
+}
+
+interface UserGrowthData {
+  date: string;
+  count: number;
+}
+
 const categoryData = ref<CategoryData>({
   total: 0,
   categories: []
@@ -63,11 +78,28 @@ const riderData = ref<RiderData>({
   riders: []
 })
 
+const userData = ref<UserData>({
+  total: 0,
+  users: []
+})
+
+const timeRanges = [
+  { label: '全部', value: 'all' },
+  { label: '近一年', value: 'year' },
+  { label: '近一个月', value: 'month' },
+  { label: '近七天', value: 'week' }
+]
+
+const selectedTimeRange = ref('all')
+const userGrowthData = ref<UserGrowthData[]>([])
+const filteredGrowthData = ref<UserGrowthData[]>([])
+
 onMounted(() => {
   getCategoryData()
   getGoodsData()
   getSeckillData()
   getRiderData()
+  getUserData()
 })
 
 // 获取分类统计数据
@@ -173,12 +205,167 @@ const getRiderData = async () => {
     console.error('获取骑手统计数据失败：', error)
   }
 }
+
+// 获取用户统计数据
+const getUserData = async () => {
+  try {
+    const { data: res } = await getUserListApi()
+    if (res.code === 1) {
+      userData.value = {
+        total: res.data.length,
+        users: res.data.map((item: any) => ({
+          name: item.name,
+          createTime: item.createTime
+        }))
+      }
+      
+      // 处理用户增长数据
+      const growthMap = new Map<string, number>()
+      
+      // 按日期分组统计
+      res.data.forEach((user: any) => {
+        const date = user.createTime.split(' ')[0]
+        growthMap.set(date, (growthMap.get(date) || 0) + 1)
+      })
+      
+      // 转换为数组并排序
+      userGrowthData.value = Array.from(growthMap.entries())
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+      
+      // 初始化过滤后的数据
+      filterGrowthData()
+      
+      console.log('获取到用户统计数据：', userData.value)
+    }
+  } catch (error) {
+    console.error('获取用户统计数据失败：', error)
+  }
+}
+
+// 过滤增长数据
+const filterGrowthData = () => {
+  const now = new Date()
+  const data = userGrowthData.value
+  
+  switch (selectedTimeRange.value) {
+    case 'year': {
+      const yearAgo = new Date(now.setFullYear(now.getFullYear() - 1))
+      filteredGrowthData.value = data.filter(item => new Date(item.date) >= yearAgo)
+      break
+    }
+    case 'month': {
+      const monthAgo = new Date(now.setMonth(now.getMonth() - 1))
+      filteredGrowthData.value = data.filter(item => new Date(item.date) >= monthAgo)
+      break
+    }
+    case 'week': {
+      const weekAgo = new Date(now.setDate(now.getDate() - 7))
+      filteredGrowthData.value = data.filter(item => new Date(item.date) >= weekAgo)
+      break
+    }
+    default:
+      filteredGrowthData.value = data
+  }
+  
+  // 更新图表
+  updateChart()
+}
+
+// 更新图表
+const updateChart = () => {
+  const chartDom = document.getElementById('userGrowthChart')
+  if (!chartDom) return
+  
+  const myChart = echarts.init(chartDom)
+  
+  const option = {
+    title: {
+      text: '用户增长趋势',
+      left: 'center',
+      top: '10px',
+      textStyle: {
+        color: '#303133',
+        fontSize: 16,
+        fontWeight: 500
+      }
+    },
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: {
+        type: 'line'
+      }
+    },
+    grid: {
+      top: '60px',
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: filteredGrowthData.value.map(item => item.date),
+      axisLabel: {
+        rotate: 45
+      }
+    },
+    yAxis: {
+      type: 'value',
+      name: '新增用户数',
+      minInterval: 1
+    },
+    series: [
+      {
+        name: '新增用户',
+        type: 'line',
+        data: filteredGrowthData.value.map(item => item.count),
+        smooth: true,
+        showSymbol: true,
+        symbolSize: 8,
+        lineStyle: {
+          width: 3,
+          color: '#409EFF'
+        },
+        itemStyle: {
+          color: '#409EFF'
+        },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            {
+              offset: 0,
+              color: 'rgba(64,158,255,0.3)'
+            },
+            {
+              offset: 1,
+              color: 'rgba(64,158,255,0.1)'
+            }
+          ])
+        }
+      }
+    ]
+  }
+  
+  myChart.setOption(option)
+  
+  // 监听窗口大小变化，调整图表大小
+  window.addEventListener('resize', () => {
+    myChart.resize()
+  })
+}
+
+// 监听时间范围变化
+const handleTimeRangeChange = (value: string) => {
+  selectedTimeRange.value = value
+  filterGrowthData()
+}
 </script>
 
 <template>
   <div class="statistics-container">
     <el-row :gutter="20" class="overview-row">
-      <el-col :span="8">
+      <el-col :span="6">
         <el-card class="overview-card" shadow="hover">
           <div class="overview-item">
             <div class="icon-wrapper bg-success">
@@ -191,7 +378,7 @@ const getRiderData = async () => {
           </div>
         </el-card>
       </el-col>
-      <el-col :span="8">
+      <el-col :span="6">
         <el-card class="overview-card" shadow="hover">
           <div class="overview-item">
             <div class="icon-wrapper bg-warning">
@@ -204,7 +391,7 @@ const getRiderData = async () => {
           </div>
         </el-card>
       </el-col>
-      <el-col :span="8">
+      <el-col :span="6">
         <el-card class="overview-card" shadow="hover">
           <div class="overview-item">
             <div class="icon-wrapper bg-primary">
@@ -213,6 +400,19 @@ const getRiderData = async () => {
             <div class="content">
               <div class="label">空闲骑手</div>
               <div class="value">{{ riderData.riders.filter(item => item.status === 1).length }}</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="overview-card" shadow="hover">
+          <div class="overview-item">
+            <div class="icon-wrapper bg-info">
+              <el-icon><User /></el-icon>
+            </div>
+            <div class="content">
+              <div class="label">平台用户</div>
+              <div class="value">{{ userData.total }}</div>
             </div>
           </div>
         </el-card>
@@ -390,6 +590,70 @@ const getRiderData = async () => {
         </div>
       </el-col>
     </el-row>
+    <el-row :gutter="20">
+      <el-col :span="12">
+        <div class="stats-card user-stats">
+          <el-card class="box-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <span class="title">用户统计</span>
+                <el-tag type="info" effect="plain" class="total-tag">
+                  总数：{{ userData.total }}
+                </el-tag>
+              </div>
+            </template>
+            <el-table 
+              :data="userData.users" 
+              style="width: 100%"
+              :header-cell-style="{
+                background: '#f5f7fa',
+                color: '#606266',
+                fontWeight: 'bold'
+              }"
+              :cell-style="{
+                padding: '8px 0'
+              }"
+              height="400"
+              :max-height="400"
+            >
+              <el-table-column prop="name" label="用户名称" min-width="150">
+                <template #default="scope">
+                  {{ scope.row.name || '微信用户' }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="createTime" label="创建时间" min-width="180" align="center" />
+            </el-table>
+          </el-card>
+        </div>
+      </el-col>
+    </el-row>
+    <el-row :gutter="20">
+      <el-col :span="24">
+        <div class="stats-card growth-stats">
+          <el-card class="box-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <span class="title">用户增长趋势</span>
+                <el-radio-group 
+                  v-model="selectedTimeRange" 
+                  @change="handleTimeRangeChange"
+                  size="small"
+                >
+                  <el-radio-button 
+                    v-for="range in timeRanges" 
+                    :key="range.value" 
+                    :label="range.value"
+                  >
+                    {{ range.label }}
+                  </el-radio-button>
+                </el-radio-group>
+              </div>
+            </template>
+            <div id="userGrowthChart" style="width: 100%; height: 400px;"></div>
+          </el-card>
+        </div>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -488,6 +752,10 @@ const getRiderData = async () => {
 
     .bg-primary {
       background: linear-gradient(135deg, #409eff 0%, #a0cfff 100%);
+    }
+
+    .bg-info {
+      background: linear-gradient(135deg, #909399 0%, #c8c9cc 100%);
     }
   }
 
@@ -615,6 +883,10 @@ const getRiderData = async () => {
           font-size: 12px;
           margin-right: 2px;
         }
+      }
+
+      &.growth-stats {
+        margin-top: 20px;
       }
     }
   }
