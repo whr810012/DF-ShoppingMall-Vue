@@ -1,11 +1,10 @@
 import request from '@/utils/request'
 
 // 查询列表页接口
-export const getOrderDetailPageAPI = (params: any) => {
+export const getOrderDetailPageAPI = () => {
   return request({
-    url: '/order/conditionSearch',
-    method: 'get',
-    params
+    url: '/admin/order/queryAll',
+    method: 'get'
   })
 }
 

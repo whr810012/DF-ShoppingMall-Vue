@@ -309,7 +309,7 @@ onMounted(async () => {
     defaultActivity.value = Number(route.query.status)
   }
   // 获取订单统计数据（3种状态的数量）
-  await getOrderListBy3Status()
+  // await getOrderListBy3Status()
   // 如果路径中有orderId值，说明是点击右上角消息通知进来的
   if (route.query.orderId && route.query.orderId !== 'undefined') {
     goDetail(route.query.orderId, 2)

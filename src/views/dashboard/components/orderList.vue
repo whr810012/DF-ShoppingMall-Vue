@@ -303,7 +303,7 @@ const tabList = computed(() => [
 const getOrderListData = async (status: number) => {
   dialogVisible.value = false;
   const params = { page: page.value, pageSize: pageSize.value, status };
-  const data = await getOrderDetailPageAPI(params);
+  const data = await getOrderDetailPageAPI()
   console.log("拿到订单数据了！", data);
   orderData.value = data.data.data.records;
   counts.value = data.data.data.total;
