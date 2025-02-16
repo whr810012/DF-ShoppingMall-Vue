@@ -399,7 +399,7 @@ const handleTimeRangeChange = (value: string) => {
             </div>
             <div class="content">
               <div class="label">空闲骑手</div>
-              <div class="value">{{ riderData.riders.filter(item => item.status === 1).length }}</div>
+              <div class="value">{{ riderData.riders.filter(item => item.status === 0).length }}</div>
             </div>
           </div>
         </el-card>

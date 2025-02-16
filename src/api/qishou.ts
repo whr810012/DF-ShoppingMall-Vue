@@ -37,3 +37,15 @@ export const queryAllQiShouApi = () => {
     method: 'get'
   })
 }
+
+// 为骑手分配订单
+export const assignOrderToRiderApi = (data: {
+  orderId: number;
+  riderId: number;
+}) => {
+  return request({
+    url: 'admin/rider/order',
+    method: 'post',
+    data
+  })
+}

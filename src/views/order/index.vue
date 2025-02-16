@@ -158,7 +158,7 @@ const handleViewDelivery = (row: Order) => {
 const handleAgreeRefund = (row: Order) => {
   refundOrderApi(row.id).then(res => {
     if (res.data.code === 1) {
-      ElMessage.success('同意退款，订单号：' + row.number)
+      ElMessage.success('同意退款，订单号：' + row.id)
       init()
     } else {
       throw new Error(res.data.msg)

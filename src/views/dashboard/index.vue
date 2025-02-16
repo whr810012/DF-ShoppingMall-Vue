@@ -68,7 +68,7 @@
               type="primary" 
               size="small" 
               @click="handleAssignOrder(scope.row)"
-              :disabled="scope.row.status !== 1"
+              :disabled="scope.row.status === 1"
             >
               分配订单
             </el-button>
@@ -148,8 +148,7 @@
     >
       <el-table :data="pendingOrders" style="width: 100%" v-loading="orderLoading">
         <el-table-column prop="id" label="订单号" width="120" />
-        <el-table-column prop="address" label="配送地址" />
-        <el-table-column prop="distance" label="距离" width="100" />
+        <el-table-column prop="address.address" label="配送地址" />
         <el-table-column label="操作" width="100">
           <template #default="scope">
             <el-button 
@@ -170,7 +169,8 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { addQiShouApi, deleteQiShouApi, queryQiShouApi, queryAllQiShouApi } from '@/api/qishou'
+import { addQiShouApi, deleteQiShouApi, queryQiShouApi, queryAllQiShouApi, assignOrderToRiderApi } from '@/api/qishou'
+import { getOrderListApi } from '@/api/order'
 
 // 统计数据
 const statistics = ref({
@@ -354,11 +354,19 @@ const handleAssignOrder = async (row: any) => {
   orderDialogVisible.value = true
   orderLoading.value = true
   try {
-    // TODO: 调用获取待分配订单列表API
-    // const res = await getPendingOrdersAPI()
-    // pendingOrders.value = res.data
+    const { data: res } = await getOrderListApi()
+    if (res.code === 1) {
+      // 筛选出status为1的订单
+      pendingOrders.value = res.data.filter((order: any) => order.status === 1)
+      if (pendingOrders.value.length === 0) {
+        ElMessage.info('当前没有待分配的订单')
+      }
+    } else {
+      ElMessage.error(res.msg || '获取待分配订单失败')
+    }
   } catch (error) {
     console.error('获取待分配订单失败:', error)
+    ElMessage.error('获取待分配订单失败')
   } finally {
     orderLoading.value = false
   }
@@ -367,16 +375,21 @@ const handleAssignOrder = async (row: any) => {
 // 确认分配订单
 const assignOrder = async (order: any) => {
   try {
-    // TODO: 调用分配订单API
-    // await assignOrderAPI({
-    //   orderId: order.id,
-    //   riderId: currentRider.value.id
-    // })
-    ElMessage.success('分配成功')
-    orderDialogVisible.value = false
-    getRiderList()
-  } catch (error) {
+    const { data: res } = await assignOrderToRiderApi({
+      orderId: order.id,
+      riderId: currentRider.value.id
+    })
+    
+    if (res.code === 1) {
+      ElMessage.success('分配成功')
+      orderDialogVisible.value = false
+      getRiderList()
+    } else {
+      ElMessage.error(res.msg || '分配失败')
+    }
+  } catch (error: any) {
     console.error('分配订单失败:', error)
+    ElMessage.error(error.response?.data?.msg || '分配订单失败')
   }
 }
 
