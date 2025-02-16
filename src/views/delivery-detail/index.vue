@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
 import { Location, Phone, ArrowLeft } from '@element-plus/icons-vue'
+import { onMounted } from 'vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +24,10 @@ const {
 const goBack = () => {
   router.push('/order')
 }
+onMounted(() => {
+  console.log(route.query)
+  
+})
 </script>
 
 <template>

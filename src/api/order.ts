@@ -17,7 +17,7 @@ export const getOrderListApi = () => {
 export const refundOrderApi = (id: number) => {
   const data = {
     id,
-    status:4
+    status:0
   }
   return request<ApiResponse>({
     url: `/admin/order/amend`,
