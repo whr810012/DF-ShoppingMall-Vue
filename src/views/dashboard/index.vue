@@ -46,6 +46,13 @@
         <el-table-column prop="name" label="姓名" align="center" />
         <el-table-column prop="account" label="账号" align="center" />
         <el-table-column prop="phone" label="手机号" align="center" />
+        <el-table-column prop="status" label="状态">
+          <template #default="{ row }">
+            <el-tag :type="getStatusType(row.status)" size="small">
+              {{ getStatusText(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="sex" label="性别" align="center" />
         <el-table-column label="头像" align="center">
           <template #default="{ row }">
@@ -144,12 +151,69 @@
     <el-dialog
       v-model="orderDialogVisible"
       title="分配订单"
-      width="600px"
+      width="900px"
+      class="assign-order-dialog"
     >
-      <el-table :data="pendingOrders" style="width: 100%" v-loading="orderLoading">
-        <el-table-column prop="id" label="订单号" width="120" />
-        <el-table-column prop="address.address" label="配送地址" />
-        <el-table-column label="操作" width="100">
+      <el-table 
+        :data="pendingOrders" 
+        style="width: 100%" 
+        v-loading="orderLoading"
+        :header-cell-style="{
+          background: '#F5F7FA',
+          color: '#303133',
+          fontWeight: 600,
+          fontSize: '14px'
+        }"
+      >
+        <el-table-column prop="id" label="订单号" width="100">
+          <template #default="{ row }">
+            <span class="order-id">{{ row.id }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="收货信息" min-width="200">
+          <template #default="{ row }">
+            <div class="address-info">
+              <div class="user-info">
+                <span class="name">{{ row.address.name }}</span>
+              </div>
+              <div class="address">{{ row.address.address }}</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="商品信息" min-width="300">
+          <template #default="{ row }">
+            <div class="order-items-wrapper">
+              <div v-for="(item, index) in row.orderDityList" :key="index" class="order-item">
+                <div class="item-info">
+                  <el-image 
+                    v-if="item.image" 
+                    :src="item.image" 
+                    class="item-image"
+                    :preview-src-list="[item.image]"
+                  >
+                    <template #error>
+                      <div class="image-placeholder">
+                        <el-icon><Picture /></el-icon>
+                      </div>
+                    </template>
+                  </el-image>
+                  <div class="item-detail">
+                    <div class="name text-ellipsis">{{ item.name }}</div>
+                    <div class="price">¥{{ item.price.toFixed(2) }}</div>
+                  </div>
+                </div>
+                <span class="order-item-count">x{{ item.number }}</span>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="price" label="订单金额" width="120" align="center">
+          <template #default="{ row }">
+            <span class="total-price">¥{{ row.price.toFixed(2) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createTime" label="下单时间" width="150" align="center" />
+        <el-table-column label="操作" width="80" fixed="right" align="center">
           <template #default="scope">
             <el-button 
               type="primary" 
@@ -375,17 +439,18 @@ const handleAssignOrder = async (row: any) => {
 // 确认分配订单
 const assignOrder = async (order: any) => {
   try {
-    const { data: res } = await assignOrderToRiderApi({
+    const res = await assignOrderToRiderApi({
       orderId: order.id,
       riderId: currentRider.value.id
     })
+    console.log(res)
     
-    if (res.code === 1) {
+    if (res.status === 200) {
       ElMessage.success('分配成功')
       orderDialogVisible.value = false
       getRiderList()
     } else {
-      ElMessage.error(res.msg || '分配失败')
+      ElMessage.error('分配失败')
     }
   } catch (error: any) {
     console.error('分配订单失败:', error)
@@ -398,7 +463,6 @@ const getStatusType = (status: number) => {
   const map: Record<number, string> = {
     0: 'info',    // 休息中
     1: 'success', // 在线
-    2: 'warning'  // 配送中
   }
   return map[status] || 'info'
 }
@@ -406,8 +470,7 @@ const getStatusType = (status: number) => {
 const getStatusText = (status: number) => {
   const map: Record<number, string> = {
     0: '休息中',
-    1: '在线',
-    2: '配送中'
+    1: '配送中'
   }
   return map[status] || '未知'
 }
@@ -546,6 +609,123 @@ onMounted(() => {
     height: 100px;
     display: block;
     object-fit: cover;
+  }
+
+  .assign-order-dialog {
+    :deep(.el-dialog__body) {
+      padding: 20px;
+    }
+  }
+
+  .order-id {
+    font-family: Consolas, Monaco, monospace;
+    color: #409EFF;
+    font-weight: 500;
+  }
+
+  .address-info {
+    padding: 4px 0;
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+
+      .name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #303133;
+      }
+    }
+
+    .address {
+      color: #606266;
+      font-size: 13px;
+      line-height: 1.4;
+      word-break: break-all;
+    }
+  }
+
+  .order-items-wrapper {
+    padding: 4px 0;
+  }
+
+  .order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed #EBEEF5;
+    
+    &:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .item-info {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      margin-right: 12px;
+      
+      .item-image {
+        width: 40px;
+        height: 40px;
+        border-radius: 4px;
+        margin-right: 8px;
+        border: 1px solid #EBEEF5;
+        overflow: hidden;
+      }
+
+      .image-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #F5F7FA;
+        color: #909399;
+      }
+
+      .item-detail {
+        flex: 1;
+        min-width: 0;
+
+        .name {
+          font-size: 14px;
+          color: #303133;
+          margin-bottom: 4px;
+        }
+
+        .price {
+          font-size: 13px;
+          color: #F56C6C;
+          font-weight: 500;
+        }
+      }
+    }
+
+    .order-item-count {
+      color: #909399;
+      font-size: 13px;
+      background: #F5F7FA;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+  }
+
+  .total-price {
+    color: #F56C6C;
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .text-ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 </style>
