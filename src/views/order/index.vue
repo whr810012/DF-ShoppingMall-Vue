@@ -182,7 +182,7 @@ onMounted(() => {
               <div v-for="(item, index) in row.orderDityList" :key="index" class="goods-item">
                 <el-image
                   class="goods-img"
-                  :src="row.dityUrls.find(url => url.dityId === item.shopId)?.avatar"
+                  :src="row.dityUrls.length ? row.dityUrls.find(url => url.dityId === item.shopId)?.avatar : row.seckills[0].phone"
                   :preview-src-list="[row.dityUrls.find(url => url.dityId === item.shopId)?.avatar]"
                 />
                 <div class="goods-detail">
