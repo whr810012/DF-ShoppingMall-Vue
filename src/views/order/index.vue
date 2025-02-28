@@ -113,7 +113,8 @@ const getOrderType = (status: number): string => {
     1: '已下单',
     2: '配送中',
     3: '已完成',
-    4: '已申请退款'
+    4: '已申请退款',
+    5: '已评价'
   }
   return statusMap[status] || '未知状态'
 }
